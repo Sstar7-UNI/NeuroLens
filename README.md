@@ -31,3 +31,5 @@ NeuroLens is an app for Brain Tumor Classification from MRI images Using Image P
 7. J. Cheng: https://figshare.com/articles/dataset/brain_tumor_dataset/1512427
 8. S. Bhuvaji et al.: https://www.kaggle.com/datasets/sartajbhuvaji/brain-tumor-classification-mri
 9. A. Hamada: https://www.kaggle.com/datasets/ahmedhamada0/brain-tumor-detection
+
+<img width="3140" height="3880" alt="image" src="https://github.com/user-attachments/assets/9e33547b-5dc8-4fc5-b963-96c22486339f" />
