@@ -1,2 +1,33 @@
 # NeuroLens
 NeuroLens is an app for Brain Tumor Classification from MRI images Using Image Processing and Machine Learning
+
+## 1. Articole științifice (sursele 1–5)
+
+| Nr. | Autor(i) / An | Titlul articolului | Aplicație | Tehnologii utilizate | Metodologie | Rezultate | Limitări | Comentarii suplimentare |
+|---|---|---|---|---|---|---|---|---|
+| 1 | S. Roy et al., 2013 | A Review on Automated Brain Tumor Detection and Segmentation from MRI of Brain | Detectarea și segmentarea automată a tumorilor cerebrale din imagini RMN. | Procesarea imaginilor, filtrare mediană, praguri de segmentare, metoda Otsu. | Analiza comparativă a tehnicilor de preprocesare, detectare și segmentare a imaginilor medicale. | Evidențiază avantajele și dezavantajele metodelor existente, fără a propune un clasificator unic. | Performanța metodelor poate fi influențată de zgomot, contrast și asemănarea dintre țesuturile tumorale și cele sănătoase. | Articol de sinteză util pentru fundamentarea teoretică a preprocesării și segmentării imaginilor RMN. |
+| 2 | H. H. Sultan et al., 2019 | Multi-Classification of Brain Tumor Images Using Deep Neural Network | Clasificarea tumorilor cerebrale și diferențierea gradelor de gliom. | Deep Learning, CNN, imagini RMN cu substanță de contrast. | Antrenarea unei rețele convoluționale pe două seturi de date, unul pentru trei tipuri de tumori și altul pentru trei grade de gliom. | Acuratețe raportată de **96,13%** pentru tipurile de tumori și **98,7%** pentru gradele de gliom. | Seturi de date relativ reduse; generalizarea pe imagini provenite din alte instituții nu este demonstrată. | Demonstrează utilizarea CNN pentru clasificarea multiclasă a imaginilor RMN. |
+| 3 | A. Raza et al., 2022 | A Hybrid Deep Learning-Based Approach for Brain Tumor Classification | Clasificarea tumorilor cerebrale în gliom, meningiom și tumoră hipofizară. | DeepTumorNet, GoogLeNet, CNN, Transfer Learning, Leaky ReLU. | Modificarea arhitecturii GoogLeNet prin înlocuirea ultimelor cinci straturi cu cincisprezece straturi noi și antrenarea modelului pentru trei clase. | Acuratețe raportată de **99,67%**, precizie 99,6%, sensibilitate 100% și scor F1 de 99,66%. | Arhitectură mai complexă; rezultatele depind de setul de date și necesită validare pe date independente. | Reper pentru compararea modelelor NeuroLens. |
+| 4 | A. Shahin, 2025 | Fine-tuned ResNet34 for efficient brain tumor classification | Clasificarea imaginilor RMN în patru clase: gliom, meningiom, tumoră hipofizară și fără tumoră. | ResNet34, CNN, Transfer Learning, Ranger Optimizer, RAdam, Lookahead, augmentarea datelor. | Ajustarea modelului ResNet34 preantrenat, introducerea unui clasificator personalizat și antrenarea pe 7.023 de imagini RMN. | Acuratețe raportată de **99,66%**, precizie macro 99,67%, sensibilitate macro 99,66% și F1 macro 99,66%. | Dimensiunea setului de date și variațiile dintre echipamentele RMN pot afecta generalizarea. | Relevant pentru NeuroLens datorită celor patru clase și modelului preantrenat. |
+| 5 | A. M. Taha et al., 2025 | Detecting Glioma, Meningioma, and Pituitary Tumors, and Normal Brain Tissues based on Yolov11 and Yolov8 Deep Learning Models | Clasificarea imaginilor RMN pentru trei tipuri de tumori și țesut cerebral normal. | YOLOv8, YOLOv11, CNN, Transfer Learning, augmentarea datelor. | Ajustarea modelelor YOLO preantrenate pentru patru categorii și compararea cu un CNN personalizat. | Acuratețe raportată de **99,49%** pentru YOLOv8, **99,56%** pentru YOLOv11 și **96,98%** pentru CNN personalizat. | Necesitatea validării pe seturi externe; modelele pot necesita resurse computaționale ridicate. | Permite compararea YOLO cu CNN și ResNet. |
+
+## 2. Seturi de date (sursele 6–9)
+
+| Nr. | Autor(i) / An | Titlul articolului / setului de date | Aplicație | Tehnologii utilizate | Metodologie | Rezultate | Limitări | Comentarii suplimentare |
+|---|---|---|---|---|---|---|---|---|
+| 6 | M. Nickparvar, 2025* | Brain Tumor MRI Dataset | Antrenarea și evaluarea modelelor pentru clasificarea tumorilor cerebrale în patru clase. | Imagini RMN, procesarea imaginilor, CNN, Deep Learning. | Set de date care combină imagini din Figshare, SARTAJ și Br35H, organizate pentru antrenare și testare. | **7.023 de imagini RMN**: gliom, meningiom, tumoră hipofizară și fără tumoră. | Imagini cu dimensiuni diferite, care necesită redimensionare; posibile diferențe între surse. | Candidat pentru NeuroLens, deoarece include cele patru clase vizate. |
+| 7 | J. Cheng, 2024 (versiunea 8) | brain tumor dataset | Clasificarea și segmentarea tumorilor cerebrale din RMN. | Imagini RMN T1 cu contrast, MATLAB, procesarea imaginilor. | Organizarea imaginilor în trei categorii tumorale, cu informații și adnotări asociate. | **3.064 de imagini RMN** de la 233 de pacienți: gliom, meningiom și tumoră hipofizară. | Nu conține clasa fără tumoră; distribuția imaginilor între clase este dezechilibrată. | Util pentru evaluarea clasificării în trei clase. |
+| 8 | S. Bhuvaji et al., 2020* | Brain Tumor Classification (MRI) | Clasificarea imaginilor RMN în patru clase. | Imagini RMN, CNN, Transfer Learning, procesarea imaginilor. | Organizare în directoare Training și Testing, cu subdirectoare corespunzătoare claselor. | Aproximativ **3.264 de fișiere** pentru gliom, meningiom, tumoră hipofizară și fără tumoră. | Dimensiune redusă; posibile dezechilibre și suprapuneri cu alte seturi publice. | Util pentru experimente inițiale și comparații. |
+| 9 | A. Hamada, 2020 | Br35H :: Brain Tumor Detection 2020 | Detectarea prezenței sau absenței unei tumori cerebrale în RMN. | Imagini RMN, CNN, Deep Learning, clasificare binară. | Organizarea imaginilor în două categorii: cu tumoră și fără tumoră. | Set de date pentru diferențierea imaginilor normale de cele cu tumori; nu reprezintă rezultatul unui model anume. | Nu permite identificarea tipului tumorii; nu este suficient singur pentru clasificare multiclasă. | Poate contribui la completarea clasei fără tumoră. |
+
+## 4. Linkuri bibliografice
+
+1. S. Roy et al. (2013): https://arxiv.org/abs/1312.6150
+2. H. H. Sultan et al. (2019): https://doi.org/10.1109/ACCESS.2019.2919122
+3. A. Raza et al. (2022): https://doi.org/10.3390/electronics11071146
+4. A. Shahin (2025): https://pmc.ncbi.nlm.nih.gov/articles/PMC12546736/
+5. A. M. Taha et al. (2025): https://arxiv.org/pdf/2504.00189
+6. M. Nickparvar: https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset
+7. J. Cheng: https://figshare.com/articles/dataset/brain_tumor_dataset/1512427
+8. S. Bhuvaji et al.: https://www.kaggle.com/datasets/sartajbhuvaji/brain-tumor-classification-mri
+9. A. Hamada: https://www.kaggle.com/datasets/ahmedhamada0/brain-tumor-detection
