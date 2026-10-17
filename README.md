@@ -1,4 +1,6 @@
-# NeuroLens
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/d7917902-e39c-4807-b6db-08756c5fb970" alt="NeuroLens" width="100%">
+</p>
 
 NeuroLens is an application for classifying brain tumors from MRI images using image processing and machine learning.
 
