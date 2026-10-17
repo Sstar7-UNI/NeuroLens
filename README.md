@@ -1,11 +1,6 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/d7917902-e39c-4807-b6db-08756c5fb970" alt="NeuroLens" width="100%">
 </p>
-
-NeuroLens is an application for classifying brain tumors from MRI images using image processing and machine learning.
-
-## PI Project Proposal: Classification of Brain MRI Images by Tumor Presence and Type Using Supervised Learning
-
 **Authors:** Hrițcu Alexandru-Mariu, Condrea Sebastian
 
 ### Contents
@@ -21,7 +16,9 @@ NeuroLens is an application for classifying brain tumors from MRI images using i
 
 ## 1. Introduction
 
-This document discusses the implementation plan for a software product that can be used as a tool to simplify the diagnosis of brain tumors. To implement this project, we will use datasets compiled from open online sources.
+
+NeuroLens is an application for classifying brain tumors from MRI images using image processing and machine learning.
+
 
 ### 1.1. Problem Definition and Scope
 
