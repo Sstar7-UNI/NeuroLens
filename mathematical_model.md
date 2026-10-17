@@ -708,10 +708,6 @@ Rows correspond to the true classes, and columns to the predicted classes. For c
 
 $$\begin{aligned}TP_k&=\mathrm{CM}_{kk},& FN_k&=\sum_{b\ne k}\mathrm{CM}_{kb},\\ FP_k&=\sum_{a\ne k}\mathrm{CM}_{ak},& TN_k&=N_e-TP_k-FN_k-FP_k.\end{aligned}$$
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/9e33547b-5dc8-4fc5-b963-96c22486339f" alt="General confusion matrix" width="600">
-</p>
-
 *Figure: general confusion matrix, according to [[3]](README.md#ref3).*
 
 The overall accuracy and the empirical classification error are
