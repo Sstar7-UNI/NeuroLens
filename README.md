@@ -1,4 +1,4 @@
-# NeuroLens
+<img width="5190" height="804" alt="Untitled Diagram drawio" src="https://github.com/user-attachments/assets/c4b864d2-0f83-46ae-b6d5-205bf8eb8a4a" /># NeuroLens
 
 NeuroLens is an application for classifying brain tumors from MRI images using image processing and machine learning.
 
@@ -168,8 +168,17 @@ Errors will be grouped by the pair $(y_i,\widehat y_i)$. For each group, the ima
 
 ---
 # 6 Arhitecture
-##Package UML
+## Package Diagram
 <img width="3140" height="3880" alt="image" src="https://github.com/user-attachments/assets/9e33547b-5dc8-4fc5-b963-96c22486339f" />
+## Sequence Diagram 
+<img width="2334" height="2485" alt="Sequence_Diagram" src="https://github.com/user-attachments/assets/75644e8e-6ae1-45d4-9741-0d75f16da48d" />
+## Data Diagram
+<img width="5190" height="804" alt="Untitled Diagram drawio" src="https://github.com/user-attachments/assets/33c5a9e1-d677-44b6-a39b-0a7b28ec0095" />
+## Activity Diagram
+<img width="1086" height="3669" alt="Untitled Diagram drawio(1)" src="https://github.com/user-attachments/assets/7c50744c-0ab4-48eb-bb1d-e8688a8641de" />
+## Preliminary Class Diagram
+<img width="4498" height="1485" alt="Untitled Diagram drawio(2)" src="https://github.com/user-attachments/assets/0b028e34-38be-4a9b-a1c4-8bf3ff121ceb" />
+
 
 
 <a id="bibliografie"></a>
