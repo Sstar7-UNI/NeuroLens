@@ -4,7 +4,7 @@ NeuroLens is an application for classifying brain tumors from MRI images using i
 
 ## PI Project Proposal: Classification of Brain MRI Images by Tumor Presence and Type Using Supervised Learning
 
-**Authors:** Hrițcu Alexandru-Marius, Condrea Sebastian
+**Authors:** Hrițcu Alexandru-Mariu, Condrea Sebastian
 
 ### Contents
 
@@ -80,7 +80,7 @@ This section provides the mathematical foundations for the image-processing oper
 
 ## 5. Implementation Methodology
 
-This section describes how the mathematical operators defined earlier are translated into distinct software modules. The inference pipeline will implement $\mathcal{P} \rightarrow \Phi_{\theta}\rightarrow U_c \mathbf v+\mathbf b_c\rightarrow\operatorname{softmax}\rightarrow\operatorname{arg\,max}$.
+This section describes how the mathematical operators defined earlier are translated into distinct software modules. The inference pipeline will implement $\mathcal{P} \rightarrow \Phi_{\theta}\rightarrow U_c \mathbf v+\mathbf b_c\rightarrow\mathrm{softmax}\rightarrow\mathrm{arg\,max}$.
 
 Unlike the ResNet-34 or YOLO models used in various articles on this subject, we will not load pretrained weights; the convolutional layers and the classifier will be initialized and optimized within the project.
 
@@ -130,7 +130,7 @@ The tensor dimensions for each layer will be computed before running, using the 
 
 #### 5.3.2. Implementing the Forward Pass and the Output for the Four Classes
 
-Each processed image $X$ will be transformed into the feature vector $\mathbf v= \Phi_{\theta}(X)$. The last layer will produce $\mathbf z = U_c \mathbf v+ \mathbf{b}_c\in\mathbb R^4$, without an independent sigmoid activation for each class. For display, softmax is applied, and the label is the index of the maximum component, according to the justification of the $\operatorname{arg\,max}$ rule in the mathematical model.
+Each processed image $X$ will be transformed into the feature vector $\mathbf v= \Phi_{\theta}(X)$. The last layer will produce $\mathbf z = U_c \mathbf v+ \mathbf{b}_c\in\mathbb R^4$, without an independent sigmoid activation for each class. For display, softmax is applied, and the label is the index of the maximum component, according to the justification of the $\mathrm{arg\,max}$ rule in the mathematical model.
 
 During training, the cross-entropy will be computed directly from the scores $\mathbf z$ through a numerically stable implementation, avoiding redundant softmax–logarithm operations.
 
@@ -167,10 +167,10 @@ For each test example, $y_i$, $\widehat y_i$, and the four scores will be kept. 
 Errors will be grouped by the pair $(y_i,\widehat y_i)$. For each group, the image conditions will be inspected: orientation, contrast, edges, and resolution.
 
 ---
-
-#Arhitecture
+# 6 Arhitecture
 ##Package UML
 <img width="3140" height="3880" alt="image" src="https://github.com/user-attachments/assets/9e33547b-5dc8-4fc5-b963-96c22486339f" />
+
 
 <a id="bibliografie"></a>
 
