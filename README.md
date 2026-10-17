@@ -1,6 +1,7 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/d7917902-e39c-4807-b6db-08756c5fb970" alt="NeuroLens" width="100%">
 </p>
+
 **Authors:** Hrițcu Alexandru-Mariu, Condrea Sebastian
 
 ### Contents
