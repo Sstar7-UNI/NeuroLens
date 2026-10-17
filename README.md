@@ -74,7 +74,7 @@ The table below compares the public datasets analyzed (sources 6–9 in the [bib
 
 This section provides the mathematical foundations for the image-processing operators, the custom convolutional network, the loss function, the optimization, and the evaluation metrics. Because of its size, it is in a separate file:
 
-** [Mathematical Model and Algorithms Used (mathematical_model.md)](mathematical_model.md)**
+**[Mathematical Model and Algorithms Used](mathematical_model.md)**
 
 ---
 
