@@ -1,7 +1,7 @@
-from neurolens.src.neurolens.SplitType import SplitType
-from neurolens.src.neurolens.TumorClass import TumorClass
 import os
 
+from .SplitType import SplitType
+from .TumorClass import TumorClass
 
 class ImageRecord:
     def __init__(self, imagePath: str, label: TumorClass, split: SplitType):
