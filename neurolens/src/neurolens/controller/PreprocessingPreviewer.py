@@ -1,18 +1,26 @@
-from neurolens.src.neurolens.controller.AugmentationConfig import AugumentationConfig
+from neurolens.src.neurolens.controller.AugmentationConfig import AugmentationConfig
+from neurolens.src.neurolens.data_management.DatasetSplit import DatasetSplit
+from neurolens.src.neurolens.preprocessing.AugmentedBatch import AugmentedBatch
+from neurolens.src.neurolens.preprocessing.AugmentedBatchGenerator import AugmentedBatchGenerator
+from neurolens.src.neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
+from neurolens.src.neurolens.results.PreprocessingPreview import PreprocessingPreview
+from neurolens.src.neurolens.results.PreviewSample import PreviewSample
 
 
 class PreprocessingPreviewer:
-    def __init__(self,preprocessor:ImagePreprocessor):
+    def __init__(self, preprocessor: ImagePreprocessor):
         self._preprocessor: ImagePreprocessor = preprocessor
-        self._generator:AugmentedBatchGenerator = None
+        self._generator: AugmentedBatchGenerator = None
         self._batchIndex: int = 0
         self.current: PreprocessingPreview = None
-    def start(self, split:DatasetSplit, config:AugumentationConfig):
-        self._generator = AugumentedBatchGenerator(config, self._preprocessor)
+
+    def start(self, split: DatasetSplit, config: AugmentationConfig) -> PreprocessingPreview:
+        self._generator = AugmentedBatchGenerator(config, self._preprocessor)
         self._generator.reset(split.getTrainingSet())
         self._batchIndex = 0
         self.current = None
         return self.next()
+
     def next(self) -> PreprocessingPreview:
         if self._generator is None or not self._generator.hasNext():
             return None
@@ -23,7 +31,7 @@ class PreprocessingPreviewer:
         self._batchIndex += 1
         return self.current
 
-    def __toPreview(self):
+    def __toPreview(self, batch: AugmentedBatch) -> PreprocessingPreview:
         samples = []
         for i in range(batch.size()):
             r = batch.recordAt(i)

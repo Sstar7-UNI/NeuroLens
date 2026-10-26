@@ -1,16 +1,24 @@
-from typing import Dict, List
+import random
+from typing import Dict, List, Optional
+
+import tensorflow as tf
 
 from neurolens.src.neurolens.TumorClass import TumorClass
+from neurolens.src.neurolens.controller.AugmentationConfig import AugmentationConfig
 from neurolens.src.neurolens.data_management.ImageRecord import ImageRecord
+from neurolens.src.neurolens.preprocessing.AugmentedBatch import AugmentedBatch
+from neurolens.src.neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
 
 
 class AugmentedBatchGenerator:
-    def __init__(self):
-        self._config: AugmentationConfig
-        self._preprocessor:ImagePreprocessor
-        self._pendingByClass: Dict[TumorClass,List[ImageRecord]]
-        self._current: AugmentedBatch
-    def reset(self, samples:List[ImageRecord]):
+    def __init__(self, config: AugmentationConfig, preprocessor: ImagePreprocessor):
+        self._config: AugmentationConfig = config
+        self._preprocessor: ImagePreprocessor = preprocessor
+        self._samples: List[ImageRecord] = []
+        self._pendingByClass: Dict[TumorClass, List[ImageRecord]] = {c: [] for c in TumorClass}
+        self._current: Optional[AugmentedBatch] = None
+
+    def reset(self, samples: List[ImageRecord]):
         self._samples = list(samples)
         rng = random.Random(self._config.seed)
         self._pendingByClass = {c: [] for c in TumorClass}
@@ -19,14 +27,15 @@ class AugmentedBatchGenerator:
         for items in self._pendingByClass.values():
             rng.shuffle(items)
         self._current = None
-    def hasNext(self) -> Boolean:
-        return any(len(v) >0 for v in self._pendingByClass.values())
+
+    def hasNext(self) -> bool:
+        return any(len(v) > 0 for v in self._pendingByClass.values())
 
     def nextBatch(self) -> AugmentedBatch:
         if not self.hasNext():
-            raise StopIteration(" no more batches ")
-        if self._current is None:
-            self.current.release()
+            raise StopIteration("no more batches")
+        if self._current is not None:
+            self._current.release()
         n = self._config.imagesPerClass
         batch = AugmentedBatch()
         for items in self._pendingByClass.values():
@@ -34,9 +43,9 @@ class AugmentedBatchGenerator:
             del items[:n]
             for r in take:
                 img = self._preprocessor.preprocess(r.imagePath)
-                idx = batch.add(r,img)
-                for a in self._preprocessor.augment(img,self._config.copiesPerImage):
-                    batch.addAugmented(a,idx)
+                idx = batch.add(r, img)
+                for a in self._preprocessor.augment(img, self._config.copiesPerImage):
+                    batch.addAugmented(a, idx)
         self._current = batch
         return batch
 
