@@ -22,13 +22,13 @@ class ImageValidator:
             return False
         try:
             contents = tf.io.read_file(str(image_path))
-            signatures = {
-                ".jpg": b"\xff\xd8\xff",
-                ".jpeg": b"\xff\xd8\xff",
-                ".png": b"\x89PNG\r\n\x1a\n",
-                ".bmp": b"BM"
-            }
-            if not contents.numpy().startswith(signatures[extension]):
+            signatures = (
+                b"\xff\xd8\xff",
+                b"\x89PNG\r\n\x1a\n",
+                b"BM"
+            )
+
+            if not contents.numpy().startswith(signatures):
                 return False
             image = tf.io.decode_image(
                 contents,

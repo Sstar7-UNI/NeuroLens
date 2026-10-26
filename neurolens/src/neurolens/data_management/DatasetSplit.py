@@ -1,6 +1,6 @@
 from typing import List
 
-from neurolens.src.neurolens.data_management.ImageRecord import ImageRecord
+from .ImageRecord import ImageRecord
 
 
 class DatasetSplit:
