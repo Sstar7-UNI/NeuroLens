@@ -3,9 +3,10 @@ from neurolens.src.neurolens.TumorClass import TumorClass
 import os
 
 class ImageRecord:
-    _imagePath:String
-    _label:TumorClass
-    _split:SplitType
+    def __init__(self, imagePath: str, label: TumorClass, split: SplitType):
+        self._imagePath: str = imagePath
+        self._label: TumorClass = label
+        self._split: SplitType = split
     def validate(self) -> bool:
         return (
             isinstance(self._imagePath, str) and

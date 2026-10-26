@@ -11,6 +11,24 @@ class AugmentedBatch:
         self._augmented:List[tf.Tensor] = []
         self._augmentedSource:List[int] = []
         self._released: Boolean = false
+
+    def add(self, record: ImageRecord, preprocessed: tf.Tensor) -> int:
+        self._records.append(record)
+        self._preprocessed.append(preprocessed)
+        return len(self._records) - 1
+
+    def addAugmented(self, image: tf.Tensor, sourceIndex: int) -> None:
+        self._augmented.append(image)
+        self._augmentedSource.append(sourceIndex)
+
+    def recordAt(self, i: int) -> ImageRecord:
+        return self._records[i]
+
+    def preprocessedAt(self, i: int) -> tf.Tensor:
+        return self._preprocessed[i]
+
+    def augmentedFor(self, i: int) -> List[tf.Tensor]:
+        return [a for a, s in zip(self._augmented, self._augmentedSource) if s == i]
     def size(self):
         return len(self.records)
     def classCounts(self) -> Dict[TumorClass, int]:

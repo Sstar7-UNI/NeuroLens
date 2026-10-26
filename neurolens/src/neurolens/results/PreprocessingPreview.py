@@ -8,10 +8,10 @@ class PreprocessingPreview:
         self._samples:List[PreviewSample]
 
     def getSamples(self, label:TumorClass) -> List[PreviewSample]:
-        pass
+       return [s for s in self._samples if s._label == label]
     def totalCounts(self) -> int:
-        pass
+        return len(self._samples)
     def augumentedCounts(self) -> int:
-        pass
+        return sum(len(s.augmented) for s in self._samples)
     def release(self):
-        pass
+        return self._samples.clear()
