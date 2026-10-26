@@ -12,6 +12,7 @@ class PreprocessingPreviewer:
         self._generator.reset(split.getTrainingSet())
         self._batchIndex = 0
         self.current = None
+        return self.next()
     def next(self) -> PreprocessingPreview:
         if self._generator is None or not self._generator.hasNext():
             return None
