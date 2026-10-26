@@ -16,14 +16,14 @@ class ImagePreprocessor:
 
     def decode(self, path:str) -> tf.Tensor:
         contents = tf.io.read_file(path)
-        image = tf.io.decode_png(contents, channels=1)
-        image = tf.image.resize_with_pad(image, self._height, self._width)
-        return tf.image.convert_image_dtype(image, tf.float32)
-    def preprocess(self, path:str) -> tf.Tensor:
+        image = tf.io.decode_png(contents, channels=1,expand_animations=False)
+        image = tf.image.convert_image_dtype(image, tf.float32)
+        return tf.image.resize_with_pad(image, self._height, self._width)
+    def preprocess(self, path: str) -> tf.Tensor:
         image = self.decode(path)
         for op in self._pipeline:
             image = op.apply(image)
-        return self._normalization(image)
+        return tf.squeeze(self._normalization(tf.expand_dims(image, 0)), 0)
     def fitNormalization(self,samples:List[ImageRecord]) -> None:
         paths = [r.imagePath for r in samples]
         ds = tf.data.Dataset.from_tensor_slices(paths).map(self.decode).batch(32)
