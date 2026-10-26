@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QMainWindow, QMessageBox,
     QPushButton, QVBoxLayout, QWidget
 )
+
 from neurolens.controller.MainController import MainController
 from neurolens.data_management.SplitType import SplitType
 

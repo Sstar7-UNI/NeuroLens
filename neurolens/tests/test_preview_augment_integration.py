@@ -3,16 +3,16 @@ import numpy as np
 import pytest
 import tensorflow as tf
 
-from neurolens.src.neurolens.SplitType import SplitType
-from neurolens.src.neurolens.TumorClass import TumorClass
-from neurolens.src.neurolens.controller.AugmentationConfig import AugmentationConfig
-from neurolens.src.neurolens.controller.PreprocessingPreviewer import PreprocessingPreviewer
-from neurolens.src.neurolens.data_management.DatasetSplit import DatasetSplit
-from neurolens.src.neurolens.data_management.ImageRecord import ImageRecord
-from neurolens.src.neurolens.preprocessing.AugmentedBatch import AugmentedBatch
-from neurolens.src.neurolens.preprocessing.AugmentedBatchGenerator import AugmentedBatchGenerator
-from neurolens.src.neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
-from neurolens.src.neurolens.results.PreprocessingPreview import PreprocessingPreview
+from neurolens.data_management.SplitType import SplitType
+from neurolens.data_management.TumorClass import TumorClass
+from neurolens.controller.AugmentationConfig import AugmentationConfig
+from neurolens.controller.PreprocessingPreviewer import PreprocessingPreviewer
+from neurolens.data_management.DatasetSplit import DatasetSplit
+from neurolens.data_management.ImageRecord import ImageRecord
+from neurolens.preprocessing.AugmentedBatch import AugmentedBatch
+from neurolens.preprocessing.AugmentedBatchGenerator import AugmentedBatchGenerator
+from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
+from neurolens.results.PreprocessingPreview import PreprocessingPreview
 
 SIZE = 32
 PER_CLASS = 5

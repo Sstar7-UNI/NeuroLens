@@ -1,10 +1,10 @@
-from neurolens.src.neurolens.controller.AugmentationConfig import AugmentationConfig
-from neurolens.src.neurolens.data_management.DatasetSplit import DatasetSplit
-from neurolens.src.neurolens.preprocessing.AugmentedBatch import AugmentedBatch
-from neurolens.src.neurolens.preprocessing.AugmentedBatchGenerator import AugmentedBatchGenerator
-from neurolens.src.neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
-from neurolens.src.neurolens.results.PreprocessingPreview import PreprocessingPreview
-from neurolens.src.neurolens.results.PreviewSample import PreviewSample
+from .AugmentationConfig import AugmentationConfig
+from ..data_management.DatasetSplit import DatasetSplit
+from ..preprocessing.AugmentedBatch import AugmentedBatch
+from ..preprocessing.AugmentedBatchGenerator import AugmentedBatchGenerator
+from ..preprocessing.ImagePreprocessor import ImagePreprocessor
+from ..results.PreprocessingPreview import PreprocessingPreview
+from ..results.PreviewSample import PreviewSample
 
 
 class PreprocessingPreviewer:

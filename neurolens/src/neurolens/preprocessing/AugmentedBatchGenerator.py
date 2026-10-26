@@ -3,11 +3,11 @@ from typing import Dict, List, Optional
 
 import tensorflow as tf
 
-from neurolens.src.neurolens.TumorClass import TumorClass
-from neurolens.src.neurolens.controller.AugmentationConfig import AugmentationConfig
-from neurolens.src.neurolens.data_management.ImageRecord import ImageRecord
-from neurolens.src.neurolens.preprocessing.AugmentedBatch import AugmentedBatch
-from neurolens.src.neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
+from ..data_management.TumorClass import TumorClass
+from ..controller.AugmentationConfig import AugmentationConfig
+from ..data_management.ImageRecord import ImageRecord
+from .AugmentedBatch import AugmentedBatch
+from .ImagePreprocessor import ImagePreprocessor
 
 
 class AugmentedBatchGenerator:

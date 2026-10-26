@@ -2,8 +2,8 @@ from typing import List, Dict
 
 import tensorflow as tf
 
-from neurolens.src.neurolens.TumorClass import TumorClass
-from neurolens.src.neurolens.data_management.ImageRecord import ImageRecord
+from ..data_management.TumorClass import TumorClass
+from ..data_management.ImageRecord import ImageRecord
 
 
 class AugmentedBatch:
