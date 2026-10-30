@@ -1,7 +1,7 @@
 from typing import List
 
-from neurolens.src.neurolens.TumorClass import TumorClass
-from neurolens.src.neurolens.results.PreviewSample import PreviewSample
+from ..data_management.TumorClass import TumorClass
+from .PreviewSample import PreviewSample
 
 
 class PreprocessingPreview:

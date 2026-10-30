@@ -3,7 +3,7 @@ from typing import List
 
 import tensorflow as tf
 
-from neurolens.src.neurolens.TumorClass import TumorClass
+from ..data_management.TumorClass import TumorClass
 
 
 @dataclass
