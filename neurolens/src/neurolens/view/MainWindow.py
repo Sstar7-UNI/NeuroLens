@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from controller.MainController import MainController
-from neurolens.SplitType import SplitType
+from neurolens.data_management.SplitType import SplitType
 
 
 class ImageLabel(QLabel):
