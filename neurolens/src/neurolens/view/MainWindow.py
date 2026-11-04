@@ -39,14 +39,12 @@ class MainWindow(QMainWindow):
     def onNextClicked(self):
         if(self.controller.canGoNext()):
                 self.controller.nextImage()
-        self.updateCurrentImage()
-        self.updateNavigationControls(self.controller.getCurrentIndex(),self.controller.getImageCount())
+        self.refreshPreview()
 
     def onPreviousClicked(self):
         if(self.controller.canGoPrevious()):
             self.controller.previousImage()
-        self.updateCurrentImage()
-        self.updateNavigationControls(self.controller.getCurrentIndex(),self.controller.getImageCount())
+        self.refreshPreview()
 
     def onLoadDataset(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Dataset")
@@ -62,8 +60,7 @@ class MainWindow(QMainWindow):
         else:
             selected_split=SplitType.TEST
         self.controller.selectSplit(selected_split)
-        self.updateCurrentImage()
-        self.updateNavigationControls(self.controller.getCurrentIndex(),self.controller.getImageCount())
+        self.refreshPreview()
 
     def updateNavigationControls(self,current_index,image_count):
         if image_count == 0:
@@ -105,6 +102,50 @@ class MainWindow(QMainWindow):
                        f"Tumor Class: {tumorClass.name}\n")
         self.metadata_label.setText(metadata_text)
 
+    def setupControlsPanel(self, layout):
+        self.load_button = QPushButton("Load Dataset")
+        self.load_button.clicked.connect(self.onLoadDataset)
+        layout.addWidget(self.load_button)
+        split_widget = QWidget()
+        split_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        split_layout = QVBoxLayout(split_widget)
+        split_label = QLabel("Dataset Split")
+        self.choose_split = QComboBox()
+        self.choose_split.setEnabled(False)
+        self.choose_split.addItems(["Training", "Testing"])
+        self.choose_split.currentIndexChanged.connect(self.onSplitChanged)
+        split_layout.addWidget(split_label)
+        split_layout.addWidget(self.choose_split)
+        layout.addWidget(split_widget)
+        layout.addStretch()
+
+    def setupImagePreview(self,layout):
+        self.image_label = ImageLabel()
+        self.image_label.setMinimumSize(160, 120)
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setStyleSheet("background-color: #202020; color: white;")
+        self.image_label.setText("No image available")
+        self.image_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        layout.addWidget(self.image_label, 1)  # aici 1 e factorul stretch
+        navigation_layout = QHBoxLayout()
+        layout.addLayout(navigation_layout)
+        self.previous_button = QPushButton("Previous")
+        self.next_button = QPushButton("Next")
+        self.position_label = QLabel()
+        self.position_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.previous_button.clicked.connect(self.onPreviousClicked)
+        self.next_button.clicked.connect(self.onNextClicked)
+        navigation_layout.addWidget(self.previous_button)
+        navigation_layout.addWidget(self.position_label)
+        navigation_layout.addWidget(self.next_button)
+        self.metadata_label = QLabel("No Metadata Available")
+        self.metadata_label.setWordWrap(True)
+        layout.addWidget(self.metadata_label)
+
+    def refreshPreview(self):
+        self.updateCurrentImage()
+        self.updateNavigationControls(self.controller.getCurrentIndex(),self.controller.getImageCount())
+
     def __init__(self):
         super().__init__()
         self.controller = MainController()
@@ -119,42 +160,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(right_panel, 2)
         left_layout = QVBoxLayout(left_panel)
         right_layout = QVBoxLayout(right_panel)
-        self.image_label = ImageLabel()
-        self.image_label.setMinimumSize(160, 120)
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("background-color: #202020; color: white;")
-        self.image_label.setText("No image available")
-        self.image_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-        left_layout.addWidget(self.image_label,1)#aici 1 e factorul stretch
-        navigation_layout = QHBoxLayout()
-        left_layout.addLayout(navigation_layout)
-        self.previous_button = QPushButton("Previous")
-        self.next_button = QPushButton("Next")
-        self.position_label = QLabel()
-        self.position_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.previous_button.clicked.connect(self.onPreviousClicked)
-        self.next_button.clicked.connect(self.onNextClicked)
-        navigation_layout.addWidget(self.previous_button)
-        navigation_layout.addWidget(self.position_label)
-        navigation_layout.addWidget(self.next_button)
-        self.metadata_label = QLabel("No Metadata Available")
-        self.metadata_label.setWordWrap(True)
-        left_layout.addWidget(self.metadata_label)
-        self.load_button = QPushButton("Load Dataset")
-        self.load_button.clicked.connect(self.onLoadDataset)
-        right_layout.addWidget(self.load_button)
-        split_widget = QWidget()
-        split_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        split_layout = QVBoxLayout(split_widget)
-        split_label = QLabel("Dataset Split")
-        self.choose_split=QComboBox()
-        self.choose_split.setEnabled(False)
-        self.choose_split.addItems(["Training","Testing"])
-        self.choose_split.currentIndexChanged.connect(self.onSplitChanged)
-        split_layout.addWidget(split_label)
-        split_layout.addWidget(self.choose_split)
-        right_layout.addWidget(split_widget)
-        right_layout.addStretch()
+        self.setupImagePreview(left_layout)
+        self.setupControlsPanel(right_layout)
         self.updateNavigationControls(0, 0)
 
 
