@@ -37,12 +37,12 @@ class ImageLabel(QLabel):
 class MainWindow(QMainWindow):
 
     def onNextClicked(self):
-        if(self.controller.canGoNext()):
+        if self.controller.canGoNext():
                 self.controller.nextImage()
         self.refreshPreview()
 
     def onPreviousClicked(self):
-        if(self.controller.canGoPrevious()):
+        if self.controller.canGoPrevious():
             self.controller.previousImage()
         self.refreshPreview()
 
