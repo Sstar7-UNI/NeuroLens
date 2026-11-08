@@ -1,5 +1,4 @@
 import numpy as np
-from PySide6 import QtGui
 from PySide6.QtGui import QImage, QPixmap
 
 class ImageAdapter:

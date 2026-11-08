@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from controller.MainController import MainController
 from neurolens.data_management.SplitType import SplitType
+from neurolens.view.ImageAdapter import ImageAdapter
 
 
 class ImageLabel(QLabel):
@@ -146,8 +147,13 @@ class MainWindow(QMainWindow):
         self.updateCurrentImage()
         self.updateNavigationControls(self.controller.getCurrentIndex(),self.controller.getImageCount())
 
+    def displayTensorPreview(self, tensor):
+        pixmap = self.image_adapter.tensorToPixmap(tensor)
+        self.image_label.setPixmap(pixmap)
+
     def __init__(self):
         super().__init__()
+        self.image_adapter = ImageAdapter()
         self.controller = MainController()
         self.setWindowTitle("NeuroLens")
         self.resize(900, 600)

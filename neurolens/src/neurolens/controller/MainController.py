@@ -5,6 +5,9 @@ from neurolens.data_management.DatasetManifest import DatasetManifest
 from neurolens.data_management.ImageRecord import ImageRecord
 from neurolens.data_management.SplitType import SplitType
 from neurolens.data_management.TumorClass import TumorClass
+from neurolens.controller.AugmentationConfig import AugmentationConfig
+from neurolens.controller.PreprocessingPreviewer import PreprocessingPreviewer
+from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
 
 class PreviewImageData(TypedDict):
     imagePath: str
@@ -23,6 +26,7 @@ class MainController:
         self._selectedSplit: SplitType = SplitType.TRAINING
         self._images: list[ImageRecord] = []
         self._currentIndex: int = 0
+        self._previewer = None
 
     def loadDataset(self, datasetPath: str) -> None:
         if not isinstance(datasetPath, str) or not datasetPath.strip():
@@ -101,3 +105,17 @@ class MainController:
 
     def canGoNext(self) -> bool:
         return self._currentIndex + 1 < len(self._images)
+
+    def previewPreprocessing(self, config: AugmentationConfig):
+        if self._datasetManager is None or self._datasetManifest is None:
+            raise ValueError("Dataset must be loaded before augmentation preview.")
+        split = self._datasetManager.createSplits(self._datasetManifest,config.seed)
+        preprocesor = ImagePreprocessor()
+        preprocesor.fitNormalization(split.getTrainingSet())
+        self._previewer = PreprocessingPreviewer(preprocesor)
+        return self._previewer.start(split,config)
+
+    def nextPreviewBatch(self):
+        if self._previewer is None:
+            raise ValueError("Previewer must be initialized before augmentation preview.")
+        return self._previewer.next()
