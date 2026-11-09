@@ -9,7 +9,7 @@ from .TumorClass import TumorClass
 class ImageValidator:
 
     def __init__(self) -> None:
-        self._supportedFormats: list[str] = [".jpg", ".jpeg", ".png", ".bmp"]
+        self._supportedFormats: list[str] = [".jpg", ".jpeg", ".png"]
         self._expectedChannels: int = 3
     def validate(self, path: str) -> bool:
         if not isinstance(path, str) or not path.strip():
@@ -24,8 +24,7 @@ class ImageValidator:
             contents = tf.io.read_file(str(image_path))
             signatures = (
                 b"\xff\xd8\xff",
-                b"\x89PNG\r\n\x1a\n",
-                b"BM"
+                b"\x89PNG\r\n\x1a\n"
             )
 
             if not contents.numpy().startswith(signatures):
