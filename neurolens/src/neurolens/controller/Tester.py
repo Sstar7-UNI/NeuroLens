@@ -1,62 +1,57 @@
 import tensorflow as tf
 
 from neurolens.evaluation.ConfusionMatrix import ConfusionMatrix
-from neurolens.network import DecisionRule
-from neurolens.results import EvaluationReport
+from neurolens.results.EvaluationReport import EvaluationReport
 
 BATCH_SIZE = 32
 class Tester:
-    def __init__(self,preprocessor,repository,rule:DecisionRule):
+    def __init__(self, preprocessor, repository, rule, batchSize: int = BATCH_SIZE):
         self._preprocessor = preprocessor
         self._repository = repository
         self._rule = rule
-        self._samples=[]
-        self._probabilities=[] # lista de 4 floaturi pe sample
+        self._batchSize = batchSize
+        self._samples = []
+        self._probabilities = []
         self._predicted = []
-    def evaluate(self,split) -> EvaluationReport:
-        samples = split.getTestSet()
-        if len(samples) == 0:
-            raise ValueError("testsplit e gol")
-        model = self._repository.loadModel()
 
+    def evaluate(self, split) -> EvaluationReport:
+        samples = list(split.getTestSet())
+        config = self._repository.loadConfig()
+        self._preprocessor.setNormalization(config.normalizationMean, config.normalizationStd)
+        model = self._repository.loadModel(config)
         probabilities = []
-        for start in range(0,len(samples),BATCH_SIZE):
-            chunk = samples[start:start+BATCH_SIZE]
-            images = []
-            for sample in chunk:
-                images.append(self._preprocessor.preprocess(sample.imagePath))
-            batch = tf.stack(images)
 
+        for start in range(0, len(samples), self._batchSize):
+            chunk = samples[start:start + self._batchSize]
+            images = [self._preprocessor.preprocess(sample.imagePath) for sample in chunk]
+            batch = tf.stack(images)
             logits = model.predict(batch, verbose=0)
             batchProbabilities = tf.nn.softmax(logits, axis=-1).numpy()
-            for row in batchProbabilities:
-                values = []
-                for value in row:
-                    values.append(float(value))
-                probabilities.append(values)
-        predicted = []
-        trueIds = []
-        predictedIds  = []
-        for i in range(len(samples)):
-            predictedClass = self._rule.decide(probabilities[i])
-            predicted.append(predictedClass)
-            trueIds.append(samples[i].label.id)
-            predictedIds.append(predictedClass.id)
+            probabilities.extend([[float(value) for value in row] for row in batchProbabilities])
+
+        predicted = [self._rule.decide(row) for row in probabilities]
+        trueIds = [int(sample.label) for sample in samples]
+        predictedIds = [int(prediction) for prediction in predicted]
+
         self._samples = samples
         self._probabilities = probabilities
         self._predicted = predicted
 
         matrix = ConfusionMatrix.fromPredictions(tf.constant(trueIds), tf.constant(predictedIds))
-        report = EvaluationReport(matrix,matrix.classMetrics(), self.collectMisclassifications())
+        report = EvaluationReport(matrix, matrix.classMetrics(), self.collectMisclassifications())
         self._repository.saveEvaluation(report)
         return report
 
-    '''
-    De terminat dupa ce legam modulele
     def collectMisclassifications(self):
         result = []
-        for i in range(len(self._samples)):
-            sample = self._samples[i]
-            predictedClass = self._predicted[i]
-            if(predictedClass != sample.label):
-    '''
+        for sample, predicted, probabilities in zip(
+            self._samples, self._predicted, self._probabilities
+        ):
+            if int(predicted) != int(sample.label):
+                result.append({
+                    "imagePath": sample.imagePath,
+                    "trueClass": sample.label,
+                    "predictedClass": predicted,
+                    "probabilities": list(probabilities),
+                })
+        return result
