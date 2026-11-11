@@ -42,6 +42,8 @@ class DatasetManifest:
             try:
                 if not isinstance(item, dict):
                     raise ValueError("Record must be a JSON object.")
+                if not isinstance(item["label"], str):
+                    raise ValueError("Label must be a string.")
                 record = ImageRecord(
                     imagePath=item["imagePath"],
                     label=TumorClass.fromName(item["label"]),
