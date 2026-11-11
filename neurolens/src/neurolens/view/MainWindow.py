@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QGroupBox, QSizePolicy, QPushButton, QFileDialog, QComboBox, QSpinBox, QMessageBox)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from controller.MainController import MainController
+from neurolens.controller.MainController import MainController
 from neurolens.data_management.SplitType import SplitType
 from neurolens.view.ImageAdapter import ImageAdapter
 from neurolens.controller.AugmentationConfig import AugmentationConfig
