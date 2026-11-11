@@ -6,7 +6,7 @@ import time
 import tensorflow as tf
 from tensorflow import keras
 
-from neurolens.TumorClass import TumorClass
+from neurolens.data_management.TumorClass import TumorClass
 from neurolens.controller import TrainingConfig
 from neurolens.data_storage import ModelConfig
 from neurolens.data_storage.ModelRepository import ModelRepository

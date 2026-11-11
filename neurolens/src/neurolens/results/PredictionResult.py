@@ -1,4 +1,4 @@
-from neurolens.TumorClass import TumorClass
+from neurolens.data_management.TumorClass import TumorClass
 from typing import List
 
 class PredictionResult:

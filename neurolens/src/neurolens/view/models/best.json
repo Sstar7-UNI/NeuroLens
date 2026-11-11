@@ -1,0 +1,20 @@
+{
+    "inputWidth": 224,
+    "inputHeight": 224,
+    "classNames": [
+        "GLIOMA",
+        "MENINGIOMA",
+        "NO_TUMOR",
+        "PITUITARY"
+    ],
+    "filterCounts": [
+        32,
+        64,
+        128
+    ],
+    "normalizationMean": 0.0,
+    "normalizationStd": 1.0,
+    "randomSeed": 42,
+    "epochsTrained": 0,
+    "parameterCount": 0
+}

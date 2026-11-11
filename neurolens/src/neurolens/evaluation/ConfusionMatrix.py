@@ -1,7 +1,7 @@
 # evaluation/confusion_matrix.py
 import tensorflow as tf
 
-from neurolens.data_management import TumorClass
+from neurolens.data_management.TumorClass import TumorClass
 from neurolens.evaluation.ClassMetrics import ClassMetrics
 
 
