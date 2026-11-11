@@ -8,6 +8,7 @@ from neurolens.data_management.TumorClass import TumorClass
 from neurolens.controller.AugmentationConfig import AugmentationConfig
 from neurolens.controller.PreprocessingPreviewer import PreprocessingPreviewer
 from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
+from neurolens.data_management.ImageValidator import ImageValidator
 
 class PreviewImageData(TypedDict):
     imagePath: str
@@ -44,6 +45,7 @@ class MainController:
         self._selectedSplit = SplitType.TRAINING
         self._images = images
         self._currentIndex = 0
+        self._previewer = None
 
     def selectSplit(self, split: SplitType) -> None:
         if not isinstance(split, SplitType) or split not in (SplitType.TRAINING,SplitType.TEST,):
@@ -109,13 +111,21 @@ class MainController:
     def previewPreprocessing(self, config: AugmentationConfig):
         if self._datasetManager is None or self._datasetManifest is None:
             raise ValueError("Dataset must be loaded before augmentation preview.")
+        if not config.validate():
+            raise ValueError("Invalid augmentation configuration.")
         split = self._datasetManager.createSplits(self._datasetManifest,config.seed)
         preprocesor = ImagePreprocessor()
         preprocesor.fitNormalization(split.getTrainingSet())
-        self._previewer = PreprocessingPreviewer(preprocesor)
-        return self._previewer.start(split,config)
+        previewer = PreprocessingPreviewer(preprocesor)
+        preview = previewer.start(split, config)
+        self._previewer = previewer
+        return preview
 
     def nextPreviewBatch(self):
         if self._previewer is None:
             raise ValueError("Previewer must be initialized before augmentation preview.")
         return self._previewer.next()
+
+    def validateInput(self, path: str) -> bool:
+        validator = ImageValidator()
+        return validator.validate(path)
