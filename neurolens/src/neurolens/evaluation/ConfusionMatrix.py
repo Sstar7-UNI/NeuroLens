@@ -50,13 +50,13 @@ class ConfusionMatrix:
         return total
 
     def truePositives(self, k: TumorClass) -> int:
-        return self._counts[k.id][k.id]
+        return self._counts[int(k)][int(k)]
 
     def falsePositives(self, k: TumorClass) -> int:
-        return self._columnSum(k.id) - self.truePositives(k)
+        return self._columnSum(int(k)) - self.truePositives(k)
 
     def falseNegatives(self, k: TumorClass) -> int:
-        return self._rowSum(k.id) - self.truePositives(k)
+        return self._rowSum(int(k)) - self.truePositives(k)
 
     def trueNegatives(self, k: TumorClass) -> int:
         return (self._total() - self.truePositives(k)

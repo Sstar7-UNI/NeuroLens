@@ -12,9 +12,9 @@
         64,
         128
     ],
-    "normalizationMean": 0.0,
-    "normalizationStd": 1.0,
+    "normalizationMean": 0.1751929670572281,
+    "normalizationStd": 0.202289292655186,
     "randomSeed": 42,
-    "epochsTrained": 0,
-    "parameterCount": 0
+    "epochsTrained": 13,
+    "parameterCount": 94084
 }

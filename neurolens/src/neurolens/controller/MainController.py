@@ -9,6 +9,23 @@ from neurolens.controller.AugmentationConfig import AugmentationConfig
 from neurolens.controller.PreprocessingPreviewer import PreprocessingPreviewer
 from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
 from neurolens.data_management.ImageValidator import ImageValidator
+from neurolens.controller.TrainingConfig import TrainingConfig
+from neurolens.controller.Learner import Learner
+from neurolens.data_storage.ModelRepository import ModelRepository
+from neurolens.results.TrainingReport import TrainingReport
+from neurolens.preprocessing.ContrastStretcher import ContrastStretcher
+from neurolens.preprocessing.GaussianFilter import GaussianFilter
+from neurolens.preprocessing.MedianFilter import MedianFilter
+from neurolens.preprocessing.HistogramEqualizer import HistogramEqualizer
+from neurolens.preprocessing.OtsuSegmenter import OtsuSegmenter
+from neurolens.preprocessing.MorphologyOperator import MorphologyOperator
+from neurolens.preprocessing.PaddingMode import PaddingMode
+from neurolens.preprocessing.Connectivity import Connectivity
+from neurolens.controller.Tester import Tester
+from neurolens.controller.Runtime import Runtime
+from neurolens.network.DecisionRule import DecisionRule
+
+
 
 class PreviewImageData(TypedDict):
     imagePath: str
@@ -28,6 +45,8 @@ class MainController:
         self._images: list[ImageRecord] = []
         self._currentIndex: int = 0
         self._previewer = None
+        self._selectedRepository = None
+        self._preprocessingSteps = []
 
     def loadDataset(self, datasetPath: str) -> None:
         if not isinstance(datasetPath, str) or not datasetPath.strip():
@@ -114,7 +133,7 @@ class MainController:
         if not config.validate():
             raise ValueError("Invalid augmentation configuration.")
         split = self._datasetManager.createSplits(self._datasetManifest,config.seed)
-        preprocesor = ImagePreprocessor()
+        preprocesor = ImagePreprocessor(operators=self._buildPreprocessingOperators(self._preprocessingSteps))
         preprocesor.fitNormalization(split.getTrainingSet())
         previewer = PreprocessingPreviewer(preprocesor)
         preview = previewer.start(split, config)
@@ -129,3 +148,174 @@ class MainController:
     def validateInput(self, path: str) -> bool:
         validator = ImageValidator()
         return validator.validate(path)
+
+    def selectModel(self, weightsPath: str, configPath: str) -> None:
+        repository = ModelRepository(weightsPath, configPath)
+        repository.loadConfig()
+        self._selectedRepository = repository
+
+    def train(self, config: TrainingConfig) -> TrainingReport:
+        if self._datasetManager is None or self._datasetManifest is None:
+            raise ValueError("Load a dataset before training.")
+
+        if self._selectedRepository is None:
+            raise ValueError("Select a model before training.")
+
+        split = self._datasetManager.createSplits(
+            self._datasetManifest, config.seed
+        )
+
+        trainingSamples = split.getTrainingSet()
+
+        if not trainingSamples:
+            raise ValueError("Training set is empty.")
+
+        if not split.getValidationSet():
+            raise ValueError("Validation set is empty.")
+
+        if config.batchSize == 0:
+            config.batchSize = len(trainingSamples)
+
+        if config.batchSize <= 0:
+            raise ValueError("Batch size must be positive.")
+
+        modelConfig = self._selectedRepository.loadConfig()
+
+        preprocessor = ImagePreprocessor(
+            modelConfig.inputWidth,
+            modelConfig.inputHeight,
+            operators=self._buildPreprocessingOperators(
+                self._preprocessingSteps
+            )
+        )
+
+        learner = Learner(
+            config,
+            modelConfig,
+            preprocessor,
+            self._selectedRepository
+        )
+
+        return learner.train(split)
+
+    def selectPreprocessing(self, steps: list[dict]) -> None:
+        if not isinstance(steps, list):
+            raise ValueError("Preprocessing steps must be a list.")
+
+        selected = [dict(step) for step in steps]
+
+        self._buildPreprocessingOperators(selected)
+        self._preprocessingSteps = selected
+
+    def _buildPreprocessingOperators(self, steps: list[dict]):
+        operators = []
+        binary_mask = False
+
+        for step in steps:
+            name = step["type"]
+
+            if name == "ContrastStretcher":
+                operator = ContrastStretcher(
+                    step["lower"], step["upper"]
+                )
+
+            elif name == "GaussianFilter":
+                operator = GaussianFilter(
+                    step["sigma"],
+                    step["kernelSize"],
+                    PaddingMode[step["padding"]]
+                )
+
+            elif name == "MedianFilter":
+                operator = MedianFilter(
+                    step["kernelSize"],
+                    PaddingMode[step["padding"]]
+                )
+
+            elif name == "HistogramEqualizer":
+                operator = HistogramEqualizer(step["levels"])
+
+            elif name == "OtsuSegmenter":
+                operator = OtsuSegmenter()
+
+            elif name == "MorphologyOperator":
+                if not binary_mask:
+                    raise ValueError(
+                        "MorphologyOperator requires a binary mask "
+                        "from OtsuSegmenter immediately before it "
+                        "or before other morphology operations."
+                    )
+                operator = MorphologyOperator(
+                    Connectivity[step["connectivity"]]
+                )
+
+            else:
+                raise ValueError(f"Unknown preprocessing operator: {name}")
+
+            operators.append(operator)
+
+            if name == "OtsuSegmenter":
+                binary_mask = True
+            elif name != "MorphologyOperator":
+                binary_mask = False
+
+        return operators
+
+    def evaluate(self):
+        if self._datasetManager is None or self._datasetManifest is None:
+            raise ValueError("Load a dataset before evaluation.")
+
+        if self._selectedRepository is None:
+            raise ValueError("Select a model before evaluation.")
+
+        split = self._datasetManager.createSplits(
+            self._datasetManifest, 42
+        )
+
+        if not split.getTestSet():
+            raise ValueError("Test set is empty.")
+
+        modelConfig = self._selectedRepository.loadConfig()
+
+        preprocessor = ImagePreprocessor(
+            modelConfig.inputWidth,
+            modelConfig.inputHeight,
+            operators=self._buildPreprocessingOperators(
+                self._preprocessingSteps
+            )
+        )
+
+        tester = Tester(
+            preprocessor,
+            self._selectedRepository,
+            DecisionRule()
+        )
+
+        return tester.evaluate(split)
+
+    def classify(self, imagePath: str):
+        if self._selectedRepository is None:
+            raise ValueError("Select a model before classification.")
+
+        if not self.validateInput(imagePath):
+            raise ValueError("Invalid image.")
+
+        modelConfig = self._selectedRepository.loadConfig()
+
+        preprocessor = ImagePreprocessor(
+            modelConfig.inputWidth,
+            modelConfig.inputHeight,
+            operators=self._buildPreprocessingOperators(
+                self._preprocessingSteps
+            )
+        )
+
+        runtime = Runtime(
+            preprocessor,
+            self._selectedRepository,
+            DecisionRule()
+        )
+
+        return runtime.inference(imagePath)
+
+

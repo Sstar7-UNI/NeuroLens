@@ -2,6 +2,7 @@ import tensorflow as tf
 
 from neurolens.evaluation.ConfusionMatrix import ConfusionMatrix
 from neurolens.results.EvaluationReport import EvaluationReport
+from neurolens.evaluation.Misclassification import Misclassification
 
 BATCH_SIZE = 32
 class Tester:
@@ -16,6 +17,8 @@ class Tester:
 
     def evaluate(self, split) -> EvaluationReport:
         samples = list(split.getTestSet())
+        if not samples:
+            raise ValueError("Test set is empty.")
         config = self._repository.loadConfig()
         self._preprocessor.setNormalization(config.normalizationMean, config.normalizationStd)
         model = self._repository.loadModel(config)
@@ -38,7 +41,7 @@ class Tester:
         self._predicted = predicted
 
         matrix = ConfusionMatrix.fromPredictions(tf.constant(trueIds), tf.constant(predictedIds))
-        report = EvaluationReport(matrix, matrix.classMetrics(), self.collectMisclassifications())
+        report = EvaluationReport(matrix, self.collectMisclassifications())
         self._repository.saveEvaluation(report)
         return report
 
@@ -48,10 +51,12 @@ class Tester:
             self._samples, self._predicted, self._probabilities
         ):
             if int(predicted) != int(sample.label):
-                result.append({
-                    "imagePath": sample.imagePath,
-                    "trueClass": sample.label,
-                    "predictedClass": predicted,
-                    "probabilities": list(probabilities),
-                })
+                result.append(
+                    Misclassification(
+                        sample.imagePath,
+                        sample.label,
+                        predicted,
+                        list(probabilities)
+                    )
+                )
         return result

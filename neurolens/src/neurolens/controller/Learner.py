@@ -114,7 +114,7 @@ class Learner:
             epochs=cfg.epochs,
             callbacks=callbacks,
             class_weight=classWeights,
-            verbose=0,
+            verbose=1,
         )
 
         self._model = model
