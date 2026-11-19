@@ -10,10 +10,10 @@ from ..data_management.ImageRecord import ImageRecord
 
 
 class ImagePreprocessor:
-    def __init__(self, width: int = 224, height: int = 224):
+    def __init__(self, width: int = 224, height: int = 224,operators: list[ImageOperator] | None = None):
         self._height = height
         self._width = width
-        self._pipeline: List[ImageOperator] = []
+        self._pipeline = list(operators) if operators is not None else []
         self._normalization = layers.Normalization(axis=-1)
         self._rotation = layers.RandomRotation(0.05, fill_mode="constant")
         self._translation = layers.RandomTranslation(
@@ -60,8 +60,7 @@ class ImagePreprocessor:
     def preprocess(self, path: str) -> tf.Tensor:
         image = self.decode(path)
 
-        for op in self._pipeline:
-            image = op.apply(image)
+        image = self._applyOperators(image)
 
         return tf.squeeze(
             self._normalization(tf.expand_dims(image, 0)),
@@ -72,7 +71,7 @@ class ImagePreprocessor:
         paths = [record.imagePath for record in samples]
 
         dataset = tf.data.Dataset.from_tensor_slices(paths)
-        dataset = dataset.map(self.decode).batch(32)
+        dataset = dataset.map(lambda path: self._applyOperators(self.decode(path))).batch(32)
 
         self._normalization.adapt(dataset)
 
@@ -103,3 +102,8 @@ class ImagePreprocessor:
                 tf.one_hot(label, 4),
             )
         )
+
+    def _applyOperators(self, image: tf.Tensor) -> tf.Tensor:
+        for operator in self._pipeline:
+            image = operator.apply(image)
+        return image
