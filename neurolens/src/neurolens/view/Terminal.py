@@ -19,7 +19,7 @@ from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
 
 USAGE = """usage:
   neurolens init-model    filters=N,N,... [model=NAME]
-  neurolens learn         dataset=PATH [augment=off|N] [preprocessing=none|learn|a,b,c] [batch_size=N|all] [model=NAME]
+  neurolens learn         dataset=PATH [augment=off|N] [preprocessing=none|learn|a,b,c] [batch_size=N|all] [epochs=N] [model=NAME]
   neurolens evaluate      dataset=PATH [model=NAME]
   neurolens runtime-test  [model=NAME] src=PATH"""
 
@@ -203,7 +203,7 @@ class Terminal:
     def _learn(self, options):
         self._check(
             options,
-            ["dataset", "augment", "preprocessing", "batch_size", "model"],
+            ["dataset", "augment", "preprocessing", "batch_size", "epochs", "model"],
         )
 
         preprocessing = options.get("preprocessing", "none")
@@ -223,6 +223,16 @@ class Terminal:
 
         if copies < 0:
             raise ValueError("augment must be 'off' or a non-negative integer")
+
+        epochsText = options.get("epochs", "40")
+
+        try:
+            epochs = int(epochsText)
+        except ValueError:
+            raise ValueError("epochs must be a positive integer")
+
+        if epochs <= 0:
+            raise ValueError("epochs must be a positive integer")
 
         split = self._datasetSplit(options)
         batchText = options.get("batch_size", "32")
@@ -245,7 +255,7 @@ class Terminal:
         )
 
         trainingConfig = self._get("TrainingConfig")(
-            epochs=40,
+            epochs=epochs,
             batchSize=batchSize,
             learningRate=0.001,
             weightDecay=0.0001,
