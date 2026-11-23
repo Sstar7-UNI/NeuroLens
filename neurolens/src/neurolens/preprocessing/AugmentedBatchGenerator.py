@@ -17,6 +17,13 @@ class AugmentedBatchGenerator:
         self._samples: List[ImageRecord] = []
         self._pendingByClass: Dict[TumorClass, List[ImageRecord]] = {c: [] for c in TumorClass}
         self._current: Optional[AugmentedBatch] = None
+        self._augmentFn = tf.function(self._augmentTensor, reduce_retracing=True)
+
+    def _augmentTensor(self, x: tf.Tensor) -> tf.Tensor:
+        p = self._preprocessor
+        x = p._rotation(x, training=True)
+        x = p._translation(x, training=True)
+        return p._zoom(x, training=True)
 
     def reset(self, samples: List[ImageRecord]):
         self._samples = list(samples)
@@ -37,15 +44,22 @@ class AugmentedBatchGenerator:
         if self._current is not None:
             self._current.release()
         n = self._config.imagesPerClass
+        copies = self._config.copiesPerImage
         batch = AugmentedBatch()
+        indices: List[int] = []
+        images: List[tf.Tensor] = []
         for items in self._pendingByClass.values():
             take = items[:n]
             del items[:n]
             for r in take:
                 img = self._preprocessor.preprocess(r.imagePath)
-                idx = batch.add(r, img)
-                for a in self._preprocessor.augment(img, self._config.copiesPerImage):
-                    batch.addAugmented(a, idx)
+                indices.append(batch.add(r, img))
+                images.append(img)
+        if copies > 0 and images:
+            stacked = tf.repeat(tf.stack(images, axis=0), copies, axis=0)
+            augmented = tf.unstack(self._augmentFn(stacked), axis=0)
+            for k, a in enumerate(augmented):
+                batch.addAugmented(a, indices[k // copies])
         self._current = batch
         return batch
 

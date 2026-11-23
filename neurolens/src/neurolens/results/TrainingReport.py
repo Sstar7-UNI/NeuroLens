@@ -1,4 +1,3 @@
-
 class TrainingReport:
     def __init__(
         self,
@@ -10,6 +9,10 @@ class TrainingReport:
         epochDurationMs: list[float] | None = None,
         validationLoss: list[float] | None = None,
         epochDurationsMs: list[float] | None = None,
+        bestValidationEmaBalancedF1: float = 0.0,
+        bestValidationMinClassF1: float = 0.0,
+        validationEmaBalancedF1: list[float] | None = None,
+        validationMinClassF1: list[float] | None = None,
     ):
         self.epochsCompleted = epochsCompleted
         self.bestEpoch = bestEpoch
@@ -29,6 +32,17 @@ class TrainingReport:
 
         self.epochDurationMs = self.epochDurationsMs
 
+        self.bestValidationEmaBalancedF1 = bestValidationEmaBalancedF1
+        self.bestValidationMinClassF1 = bestValidationMinClassF1
+        self.validationEmaBalancedF1 = (
+            validationEmaBalancedF1
+            if validationEmaBalancedF1 is not None
+            else []
+        )
+        self.validationMinClassF1 = (
+            validationMinClassF1 if validationMinClassF1 is not None else []
+        )
+
         self._epochsCompleted = self.epochsCompleted
         self._bestEpoch = self.bestEpoch
         self._bestValidationMacroF1 = self.bestValidationMacroF1
@@ -36,6 +50,10 @@ class TrainingReport:
         self._validationLoss = self.validationLoss
         self._validationMacroF1 = self.validationMacroF1
         self._epochDurationMs = self.epochDurationsMs
+        self._bestValidationEmaBalancedF1 = self.bestValidationEmaBalancedF1
+        self._bestValidationMinClassF1 = self.bestValidationMinClassF1
+        self._validationEmaBalancedF1 = self.validationEmaBalancedF1
+        self._validationMinClassF1 = self.validationMinClassF1
 
     def getTrainingHistory(self) -> list[float]:
         return self.trainLoss

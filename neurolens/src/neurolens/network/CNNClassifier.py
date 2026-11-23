@@ -1,51 +1,61 @@
+from __future__ import annotations
 
-import keras
-from keras import Model, layers
-
+import tensorflow as tf
 from neurolens.data_storage.ModelConfig import ModelConfig
-from neurolens.network.ConvBlock import ConvBlock
 
 
-class CNNClassifier(Model):
-    def __init__(self, config: ModelConfig, dropoutRate: float = 0.0, l2: float = 0.0):
-        super().__init__()
-        self._blocks = []
-        blockCount = len(config.filterCounts)
+class CNNClassifier(tf.keras.Model):
+    """
+    Lightweight residual-style 2D CNN classifier for 4-class brain tumor MRI.
+    Supports dynamic input channel counts (1-ch MRI, 2-ch +LBP, 3-ch +LoG)
+    and outputs raw class logits.
+    """
 
-        for i in range(blockCount):
-            poolSize = 2 if i < blockCount - 1 else 0
-            self._blocks.append(
-                ConvBlock(config.filterCounts[i], poolSize=poolSize, l2=l2)
+    def __init__(self, config: ModelConfig, dropoutRate: float = 0.2, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.config = config
+        self.dropout_rate = float(dropoutRate)
+        self.num_classes = len(config.classNames)
+        filters = list(config.filterCounts) or [16, 32, 64]
+
+        self._blocks: list[tuple[tf.keras.layers.Layer, ...]] = []
+        for idx, f in enumerate(filters):
+            conv1 = tf.keras.layers.Conv2D(
+                f, kernel_size=3, padding="same", use_bias=False, name=f"conv_{idx}_a"
             )
+            bn1 = tf.keras.layers.BatchNormalization(name=f"bn_{idx}_a")
+            act1 = tf.keras.layers.Activation("gelu", name=f"gelu_{idx}_a")
 
-        self._globalPooling = layers.GlobalAveragePooling2D()
-        self._dropout = layers.Dropout(dropoutRate) if dropoutRate > 0 else None
-        self._classifier = layers.Dense(
-            len(config.classNames),
-            kernel_initializer=keras.initializers.LecunNormal(),
-            kernel_regularizer=keras.regularizers.l2(l2 / 2.0) if l2 > 0 else None,
+            conv2 = tf.keras.layers.Conv2D(
+                f, kernel_size=3, padding="same", use_bias=False, name=f"conv_{idx}_b"
+            )
+            bn2 = tf.keras.layers.BatchNormalization(name=f"bn_{idx}_b")
+            act2 = tf.keras.layers.Activation("gelu", name=f"gelu_{idx}_b")
+
+            pool = tf.keras.layers.MaxPooling2D(pool_size=2, name=f"pool_{idx}")
+            self._blocks.append((conv1, bn1, act1, conv2, bn2, act2, pool))
+
+        self._gap = tf.keras.layers.GlobalAveragePooling2D(name="global_avg_pool")
+        self._dropout = tf.keras.layers.Dropout(self.dropout_rate, name="head_dropout")
+        self._dense_hidden = tf.keras.layers.Dense(
+            max(64, filters[-1]), activation="gelu", name="head_fc"
+        )
+        self._classifier = tf.keras.layers.Dense(
+            self.num_classes, activation=None, name="logits"
         )
 
-    def extractFeatures(self, inputs, training=False):
-        x = inputs
-        for block in self._blocks:
-            x = block(x, training=training)
-        return self._globalPooling(x)
+    def call(self, inputs: tf.Tensor, training: bool = False) -> tf.Tensor:
+        x = tf.cast(inputs, tf.float32)
+        for conv1, bn1, act1, conv2, bn2, act2, pool in self._blocks:
+            x = conv1(x)
+            x = bn1(x, training=training)
+            x = act1(x)
+            x = conv2(x)
+            x = bn2(x, training=training)
+            x = act2(x)
+            x = pool(x)
 
-    def call(self, inputs, training=False):
-        x = self.extractFeatures(inputs, training=training)
-        if self._dropout is not None:
-            x = self._dropout(x, training=training)
+        x = self._gap(x)
+        x = self._dropout(x, training=training)
+        x = self._dense_hidden(x)
         return self._classifier(x)
-
-    def receptiveField(self) -> int:
-        r = 1
-        jump = 1
-
-        for block in self._blocks:
-            r += (block.kernelSize - 1) * jump
-            if block.poolSize:
-                r += (block.poolSize - 1) * jump
-                jump *= block.poolSize
-
-        return r

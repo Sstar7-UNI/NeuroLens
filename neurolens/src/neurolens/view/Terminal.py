@@ -1,4 +1,3 @@
-
 import glob
 import os
 import sys
@@ -273,7 +272,9 @@ class Terminal:
         print(
             f"best epoch {report.bestEpoch + 1} of "
             f"{report.epochsCompleted}, "
-            f"val macro F1 {report.bestValidationMacroF1:.4f}"
+            f"val ema_bal F1 {report.bestValidationEmaBalancedF1:.4f}, "
+            f"min class F1 {report.bestValidationMinClassF1:.4f}, "
+            f"macro F1 {report.bestValidationMacroF1:.4f}"
         )
 
     def _evaluate(self, options):
