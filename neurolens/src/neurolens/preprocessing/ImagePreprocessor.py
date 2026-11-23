@@ -58,20 +58,15 @@ class ImagePreprocessor:
         )
 
     def preprocess(self, path: str) -> tf.Tensor:
-        image = self.decode(path)
-
-        image = self._applyOperators(image)
-
-        return tf.squeeze(
-            self._normalization(tf.expand_dims(image, 0)),
-            0,
-        )
+        image = self.preprocessBeforeNormalization(path)
+        image = self.normalize(image)
+        return image
 
     def fitNormalization(self, samples: List[ImageRecord]) -> None:
         paths = [record.imagePath for record in samples]
 
         dataset = tf.data.Dataset.from_tensor_slices(paths)
-        dataset = dataset.map(lambda path: self._applyOperators(self.decode(path))).batch(32)
+        dataset = dataset.map(lambda path: self.preprocessBeforeNormalization(path)).batch(32)
 
         self._normalization.adapt(dataset)
 
@@ -107,3 +102,23 @@ class ImagePreprocessor:
         for operator in self._pipeline:
             image = operator.apply(image)
         return image
+
+    def preprocessBeforeNormalization(self, path: str) -> tf.Tensor:
+        image = self.decode(path)
+        image = self._applyOperators(image)
+        return image
+
+    def normalize(self, image: tf.Tensor) -> tf.Tensor:
+        expended_image = tf.expand_dims(image, 0)
+        normalized_image = self._normalization(expended_image)
+        rezult_image = tf.squeeze(normalized_image, axis=0)
+        return rezult_image
+
+    def applyOperators(self, image: tf.Tensor) -> tf.Tensor:
+        return self._applyOperators(image)
+
+    def augmentBatch(self, images: tf.Tensor) -> tf.Tensor:
+        images = self._rotation(images, training=True)
+        images = self._translation(images, training=True)
+        images = self._zoom(images, training=True)
+        return images

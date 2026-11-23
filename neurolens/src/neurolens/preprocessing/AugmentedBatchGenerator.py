@@ -1,3 +1,4 @@
+
 import random
 from typing import Dict, List, Optional
 
@@ -34,26 +35,41 @@ class AugmentedBatchGenerator:
     def nextBatch(self) -> AugmentedBatch:
         if not self.hasNext():
             raise StopIteration("no more batches")
+
         if self._current is not None:
             self._current.release()
+
         n = self._config.imagesPerClass
         batch = AugmentedBatch()
+
         for items in self._pendingByClass.values():
             take = items[:n]
             del items[:n]
+
             for r in take:
                 img = self._preprocessor.preprocess(r.imagePath)
+
                 idx = batch.add(r, img)
-                for a in self._preprocessor.augment(img, self._config.copiesPerImage):
+
+                augmentedImages = self._preprocessor.augment(
+                    img, self._config.copiesPerImage
+                )
+
+                for a in augmentedImages:
                     batch.addAugmented(a, idx)
+
         self._current = batch
+
         return batch
 
     def _gen(self):
         self.reset(self._samples)
+
         while self.hasNext():
             batch = self.nextBatch()
-            for img, lab in batch.toDataset():
+            dataset = batch.toDataset()
+
+            for img, lab in dataset:
                 yield img, lab
 
     def asDataset(self) -> tf.data.Dataset:

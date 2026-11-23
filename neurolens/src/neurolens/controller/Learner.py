@@ -60,53 +60,56 @@ class Learner:
 
     def train(self, split) -> TrainingReport:
         cfg = self._config
-
         keras.utils.set_random_seed(cfg.seed)
-
         trainSamples = split.getTrainingSet()
         validationSamples = split.getValidationSet()
-
-        self._preprocessor.fitNormalization(trainSamples)
-
-        keras.utils.set_random_seed(cfg.seed)
-
-        trainDataset = self.buildTrainingDataset(trainSamples)
-
-        validationDataset = self._preprocessor.buildDataset(
-            validationSamples
+        nTrain = len(trainSamples)
+        nVal = len(validationSamples)
+        batchSize = cfg.batchSize
+        useAugmentation = cfg.useAugmentation
+        copiesPerImage = cfg.augmentation.copiesPerImage if useAugmentation else 0
+        examplesPerEpoch = nTrain * (1 + copiesPerImage)
+        stepsPerEpoch = math.ceil(examplesPerEpoch / batchSize)
+        print(
+            f"[TRAIN] N_train={nTrain} | N_val={nVal} | "
+            f"B={batchSize} | augmentation={useAugmentation} | "
+            f"K={copiesPerImage} | examples={examplesPerEpoch} | "
+            f"steps={stepsPerEpoch}",
+            flush=True
         )
+        normalizationStart = time.perf_counter()
+        self._preprocessor.fitNormalization(trainSamples)
+        normalizationTime = time.perf_counter() - normalizationStart
+        print(
+            f"[PERF] Normalization: {normalizationTime:.2f}s",
+            flush=True
+        )
+        datasetStart = time.perf_counter()
+        trainDataset = self.buildOptimizedTrainingDataset(trainSamples)
+        trainDataset = trainDataset.apply(tf.data.experimental.assert_cardinality(stepsPerEpoch))
+        datasetTime = time.perf_counter() - datasetStart
+        print(
+            f"[PERF] Dataset construction: {datasetTime:.2f}s",
+            flush=True
+        )
+        validationDataset = self._preprocessor.buildDataset(validationSamples)
         validationDataset = validationDataset.batch(cfg.batchSize)
         validationDataset = validationDataset.prefetch(tf.data.AUTOTUNE)
-
         l2 = 0.0 if cfg.decoupledDecay else cfg.weightDecay
-
         model = CNNClassifier(
             self._modelConfig,
             dropoutRate=cfg.dropoutRate,
-            l2=l2,
+            l2=l2
         )
-
         model.compile(
             optimizer=self.buildOptimizer(),
             loss=self.buildLoss(),
-            metrics=[
-                keras.metrics.F1Score(
-                    average="macro",
-                    name="macro_f1",
-                )
-            ],
+            metrics=[keras.metrics.F1Score(average="macro",name="macro_f1")]
         )
-
         classWeights = self.computeClassWeights(trainSamples)
-
         if not classWeights:
             classWeights = None
-
-        callbacks = [
-            self.buildEarlyStopping(),
-            self.buildCheckpoint(),
-            self._timer,
-        ]
+        callbacks = [self.buildEarlyStopping(),self.buildCheckpoint(),self._timer]
 
         history = model.fit(
             trainDataset,
@@ -114,18 +117,15 @@ class Learner:
             epochs=cfg.epochs,
             callbacks=callbacks,
             class_weight=classWeights,
+            shuffle=False,
             verbose=1,
         )
-
         self._model = model
-
         self._modelConfig.epochsTrained = len(history.history["loss"])
         self._modelConfig.parameterCount = int(model.count_params())
         self._modelConfig.normalizationMean = self._normalizationMean()
         self._modelConfig.normalizationStd = self._normalizationStd()
-
         self._repository.saveConfig(self._modelConfig)
-
         return self.toReport(history)
 
     def buildTrainingDataset(self, samples):
@@ -286,9 +286,83 @@ class Learner:
             self._preprocessor.normalization.variance,
             [-1],
         )
-
         variance = float(flat[0].numpy())
+        return math.sqrt(max(variance, keras.backend.epsilon()))
 
-        return math.sqrt(
-            max(variance, keras.backend.epsilon())
+    def buildTrainingSource(self, samples) -> tf.data.Dataset:
+        paths = [record.imagePath for record in samples]
+        labels = [int(record.label) for record in samples]
+        dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
+        dataset = dataset.shuffle(buffer_size=len(samples),seed=self._config.seed,reshuffle_each_iteration=True)
+        return dataset
+
+    def decodeTrainingSource(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        new_dataset = dataset.map(lambda path, label: (self._preprocessor.decode(path), label),
+                                  num_parallel_calls=tf.data.AUTOTUNE)
+        return new_dataset
+
+    def applyTrainingOperators(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        preprocessed_dataset = dataset.map(lambda image, label: (self._preprocessor.applyOperators(image),label),
+                                           num_parallel_calls=1,deterministic=True)
+        return preprocessed_dataset
+
+    def normalizeTrainingSource(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        normalized_dataset = dataset.map(lambda image, label: (self._preprocessor.normalize(image), label),
+                                         num_parallel_calls=1,deterministic=True)
+        return normalized_dataset
+
+    def buildPreprocessedTrainingDataset(self, samples) -> tf.data.Dataset:
+        dataset = self.buildTrainingSource(samples)
+        dataset = self.decodeTrainingSource(dataset)
+        dataset = self.applyTrainingOperators(dataset)
+        dataset = self.normalizeTrainingSource(dataset)
+        return dataset
+
+    def expandTrainingBatch(self, images: tf.Tensor, labels: tf.Tensor, copyIndex: tf.Tensor):
+        return tf.cond(tf.equal(copyIndex, 0), lambda: (images, labels),
+                       lambda: (self._preprocessor.augmentBatch(images), labels))
+
+    def buildAugmentedBlockDataset(self,images: tf.Tensor,labels: tf.Tensor,copiesPerImage: int) -> tf.data.Dataset:
+        dataset = tf.data.Dataset.range(copiesPerImage+1)
+        dataset = dataset.map(lambda index: self.expandTrainingBatch(images, labels, index),
+                              num_parallel_calls=1,deterministic=True)
+        return dataset
+
+    def buildAugmentedTrainingBlocks(self, samples) -> tf.data.Dataset:
+        dataset = self.buildPreprocessedTrainingDataset(samples)
+        cfg = self._config
+        copiesPerImage = cfg.augmentation.copiesPerImage if cfg.useAugmentation else 0
+        blockSize = min(32, cfg.batchSize)
+        dataset = dataset.batch(blockSize, drop_remainder=False)
+        dataset = dataset.flat_map(lambda images, labels: self.buildAugmentedBlockDataset(images, labels, copiesPerImage))
+        return dataset
+
+    def unbatchTrainingBlocks(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        dataset = dataset.unbatch()
+        return dataset
+
+    def shuffleTrainingExamples(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        dataset = dataset.shuffle(buffer_size= 1024, seed=self._config.seed,
+                                  reshuffle_each_iteration=True)
+        return dataset
+
+    def batchTrainingExamples(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        dataset = dataset.batch(self._config.batchSize, drop_remainder=False)
+        return dataset
+
+    def prefetchTrainingBatches(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+        return dataset
+
+    def buildOptimizedTrainingDataset(self, samples) -> tf.data.Dataset:
+        dataset = self.buildAugmentedTrainingBlocks(samples)
+        dataset = self.unbatchTrainingBlocks(dataset)
+        dataset = self.shuffleTrainingExamples(dataset)
+        dataset = dataset.map(
+            lambda image, label: (image,tf.one_hot(label, 4)),
+            num_parallel_calls=1,
+            deterministic=True
         )
+        dataset = self.batchTrainingExamples(dataset)
+        dataset = self.prefetchTrainingBatches(dataset)
+        return dataset
