@@ -796,6 +796,7 @@ class MainWindow(QMainWindow):
         start_row.addWidget(self.start_training_button)
         layout.addLayout(start_row)
 
+
         # Training results
         results_group = QGroupBox("Training results")
         results_layout = QHBoxLayout(results_group)
@@ -806,7 +807,7 @@ class MainWindow(QMainWindow):
         epochs_layout.addWidget(self.training_epochs_label)
 
         best_epoch_layout = QVBoxLayout()
-        best_epoch_layout.addWidget(QLabel("Best epoch"))
+        best_epoch_layout.addWidget(QLabel("Best epoch (EMA)"))
         self.training_best_epoch_label = QLabel("—")
         best_epoch_layout.addWidget(self.training_best_epoch_label)
 
@@ -814,6 +815,10 @@ class MainWindow(QMainWindow):
         f1_layout.addWidget(QLabel("Validation macro F1"))
         self.training_f1_label = QLabel("—")
         f1_layout.addWidget(self.training_f1_label)
+
+        f1_layout.addWidget(QLabel("EMA balanced F1"))
+        self.training_ema_f1_label = QLabel("—")
+        f1_layout.addWidget(self.training_ema_f1_label)
 
         results_layout.addLayout(epochs_layout, 1)
         results_layout.addLayout(best_epoch_layout, 1)
@@ -1465,6 +1470,7 @@ class MainWindow(QMainWindow):
         self.training_epochs_label.setText("—")
         self.training_best_epoch_label.setText("—")
         self.training_f1_label.setText("—")
+        self.training_ema_f1_label.setText("—")
 
         self.statusBar().showMessage("Training in progress...")
 
@@ -1483,6 +1489,10 @@ class MainWindow(QMainWindow):
 
             self.training_f1_label.setText(
                 f"{report.bestValidationMacroF1:.4f}"
+            )
+
+            self.training_ema_f1_label.setText(
+                f"{report.bestValidationEmaBalancedF1:.4f}"
             )
 
             self.statusBar().showMessage("Training completed")

@@ -1,11 +1,9 @@
-
 import math
 import os
 import time
-
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-
 from neurolens.data_management.TumorClass import TumorClass
 from neurolens.controller import TrainingConfig
 from neurolens.data_storage import ModelConfig
@@ -15,9 +13,9 @@ from neurolens.preprocessing.AugmentedBatchGenerator import AugmentedBatchGenera
 from neurolens.preprocessing.ImagePreprocessor import ImagePreprocessor
 from neurolens.results.TrainingReport import TrainingReport
 
-
 SHUFFLE_BUFFER = 1024
-
+BALANCE_MACRO_WEIGHT = 0.70
+BALANCE_MIN_WEIGHT = 0.30
 
 class EpochTimer(keras.callbacks.Callback):
     def __init__(self):
@@ -37,6 +35,76 @@ class EpochTimer(keras.callbacks.Callback):
             self.durationMs.append(
                 (time.perf_counter() - self._start) * 1000.0
             )
+
+
+class EmaBalancedF1(keras.callbacks.Callback):
+    def __init__(
+        self,
+        validationDataset,
+        classCount: int,
+        alpha: float = 0.4,
+        macroWeight: float = BALANCE_MACRO_WEIGHT,
+        minWeight: float = BALANCE_MIN_WEIGHT,
+    ):
+        super().__init__()
+        self._dataset = validationDataset
+        self._classCount = classCount
+        self._alpha = alpha
+        self._macroWeight = macroWeight
+        self._minWeight = minWeight
+        self._labels = None
+        self._ema = None
+
+    def on_train_begin(self, logs=None):
+        self._ema = None
+        self._labels = np.concatenate(
+            [
+                np.argmax(labels.numpy(), axis=1)
+                for _, labels in self._dataset
+            ]
+        )
+
+    def on_epoch_end(self, epoch, logs=None):
+        if logs is None:
+            return
+
+        predictions = np.argmax(
+            self.model.predict(self._dataset, verbose=0),
+            axis=1,
+        )
+
+        matrix = np.zeros(
+            (self._classCount, self._classCount),
+            dtype=np.int64,
+        )
+        np.add.at(matrix, (self._labels, predictions), 1)
+
+        tp = np.diag(matrix).astype(np.float64)
+        fp = matrix.sum(axis=0) - tp
+        fn = matrix.sum(axis=1) - tp
+        denominator = 2.0 * tp + fp + fn
+        perClass = np.divide(
+            2.0 * tp,
+            denominator,
+            out=np.zeros_like(tp),
+            where=denominator > 0.0,
+        )
+
+        balanced = (
+            self._macroWeight * float(np.mean(perClass))
+            + self._minWeight * float(np.min(perClass))
+        )
+
+        if self._ema is None:
+            self._ema = balanced
+        else:
+            self._ema = (
+                self._alpha * balanced
+                + (1.0 - self._alpha) * self._ema
+            )
+
+        logs["val_min_class_f1"] = float(np.min(perClass))
+        logs["val_ema_balanced_f1"] = float(self._ema)
 
 
 class Learner:
@@ -109,7 +177,7 @@ class Learner:
         classWeights = self.computeClassWeights(trainSamples)
         if not classWeights:
             classWeights = None
-        callbacks = [self.buildEarlyStopping(),self.buildCheckpoint(),self._timer]
+        callbacks = [EmaBalancedF1(validationDataset, len(TumorClass), alpha=cfg.emaAlpha),self.buildEarlyStopping(),self.buildCheckpoint(),self._timer]
 
         history = model.fit(
             trainDataset,
@@ -162,8 +230,9 @@ class Learner:
 
     def buildEarlyStopping(self):
         return keras.callbacks.EarlyStopping(
-            monitor="val_macro_f1",
+            monitor="val_ema_balanced_f1",
             mode="max",
+            min_delta=1e-5,
             patience=self._config.patience,
             restore_best_weights=True,
         )
@@ -214,7 +283,7 @@ class Learner:
     def buildCheckpoint(self):
         return keras.callbacks.ModelCheckpoint(
             filepath=self._getCheckpointPath(),
-            monitor="val_macro_f1",
+            monitor="val_ema_balanced_f1",
             mode="max",
             save_best_only=True,
             save_weights_only=True,
@@ -251,10 +320,16 @@ class Learner:
         validationF1 = self._toFloatList(
             h["val_macro_f1"]
         )
+        validationMinClassF1 = self._toFloatList(
+            h["val_min_class_f1"]
+        )
+        validationEmaBalancedF1 = self._toFloatList(
+            h["val_ema_balanced_f1"]
+        )
 
         bestEpoch = max(
-            range(len(validationF1)),
-            key=validationF1.__getitem__,
+            range(len(validationEmaBalancedF1)),
+            key=validationEmaBalancedF1.__getitem__,
         )
 
         return TrainingReport(
@@ -267,6 +342,10 @@ class Learner:
             epochDurationsMs=self._toFloatList(
                 self._timer.durationMs
             ),
+            bestValidationEmaBalancedF1=validationEmaBalancedF1[bestEpoch],
+            bestValidationMinClassF1=validationMinClassF1[bestEpoch],
+            validationEmaBalancedF1=validationEmaBalancedF1,
+            validationMinClassF1=validationMinClassF1,
         )
 
     @staticmethod
