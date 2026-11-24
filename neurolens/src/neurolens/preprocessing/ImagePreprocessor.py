@@ -1,19 +1,29 @@
+from __future__ import annotations
 
 import math
-from typing import List
+from typing import Dict, List, Tuple
 
 import tensorflow as tf
 from tensorflow.keras import layers
 
-from .ImageOperator import ImageOperator
 from ..data_management.ImageRecord import ImageRecord
+from .ImageOperator import ImageOperator
 
 
 class ImagePreprocessor:
-    def __init__(self, width: int = 224, height: int = 224,operators: list[ImageOperator] | None = None):
+    def __init__(
+        self,
+        width: int = 224,
+        height: int = 224,
+        pipeline: List[ImageOperator] | None = None,
+        pipeline_key: str = "baseline",
+        cache: Dict[Tuple[str, str], tf.Tensor] | None = None,
+    ) -> None:
         self._height = height
         self._width = width
-        self._pipeline = list(operators) if operators is not None else []
+        self._pipeline: List[ImageOperator] = list(pipeline) if pipeline is not None else []
+        self._pipeline_key = pipeline_key
+        self._cache: Dict[Tuple[str, str], tf.Tensor] = cache if cache is not None else {}
         self._normalization = layers.Normalization(axis=-1)
         self._rotation = layers.RandomRotation(0.05, fill_mode="constant")
         self._translation = layers.RandomTranslation(
@@ -26,6 +36,21 @@ class ImagePreprocessor:
     @property
     def normalization(self):
         return self._normalization
+
+    @property
+    def pipeline(self) -> List[ImageOperator]:
+        return self._pipeline
+
+    def setPipeline(
+        self,
+        pipeline: List[ImageOperator],
+        pipeline_key: str | None = None,
+    ) -> None:
+        self._pipeline = list(pipeline)
+        if pipeline_key is not None:
+            self._pipeline_key = pipeline_key
+        else:
+            self._cache.clear()
 
     def setNormalization(self, mean: float, std: float) -> None:
         mean = float(mean)
@@ -63,7 +88,8 @@ class ImagePreprocessor:
         return image
 
     def fitNormalization(self, samples: List[ImageRecord]) -> None:
-        paths = [record.imagePath for record in samples]
+        if not samples:
+            return
 
         dataset = tf.data.Dataset.from_tensor_slices(paths)
         dataset = dataset.map(lambda path: self.preprocessBeforeNormalization(path)).batch(32)

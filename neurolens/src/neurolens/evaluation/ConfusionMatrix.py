@@ -1,13 +1,11 @@
-# evaluation/confusion_matrix.py
 import tensorflow as tf
 
-from neurolens.data_management.TumorClass import TumorClass
+from neurolens.data_management import TumorClass
 from neurolens.evaluation.ClassMetrics import ClassMetrics
 
 
 class ConfusionMatrix:
     def __init__(self, counts, zeroDivisionValue: float = 0.0):
-        # 4x4 list of lists, rows = true labels, columns = predictions
         self._counts = counts
         self._zeroDivisionValue = zeroDivisionValue
 
@@ -50,13 +48,13 @@ class ConfusionMatrix:
         return total
 
     def truePositives(self, k: TumorClass) -> int:
-        return self._counts[int(k)][int(k)]
+        return self._counts[k.id][k.id]
 
     def falsePositives(self, k: TumorClass) -> int:
-        return self._columnSum(int(k)) - self.truePositives(k)
+        return self._columnSum(k.id) - self.truePositives(k)
 
     def falseNegatives(self, k: TumorClass) -> int:
-        return self._rowSum(int(k)) - self.truePositives(k)
+        return self._rowSum(k.id) - self.truePositives(k)
 
     def trueNegatives(self, k: TumorClass) -> int:
         return (self._total() - self.truePositives(k)

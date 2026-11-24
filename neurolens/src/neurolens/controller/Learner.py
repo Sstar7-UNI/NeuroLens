@@ -1,6 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 import math
 import os
 import time
+
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -16,6 +18,7 @@ from neurolens.results.TrainingReport import TrainingReport
 SHUFFLE_BUFFER = 1024
 BALANCE_MACRO_WEIGHT = 0.70
 BALANCE_MIN_WEIGHT = 0.30
+
 
 class EpochTimer(keras.callbacks.Callback):
     def __init__(self):
@@ -125,6 +128,12 @@ class Learner:
         )
         self._timer = EpochTimer()
         self._model = None
+        self._on_phase = None
+
+    def _emit_phase(self, event: str, **info) -> None:
+        cb = getattr(self, "_on_phase", None)
+        if callable(cb):
+            cb(event, info)
 
     def train(self, split) -> TrainingReport:
         cfg = self._config
@@ -172,13 +181,35 @@ class Learner:
         model.compile(
             optimizer=self.buildOptimizer(),
             loss=self.buildLoss(),
-            metrics=[keras.metrics.F1Score(average="macro",name="macro_f1")]
+            steps_per_execution=16,
+            metrics=[
+                keras.metrics.F1Score(
+                    average="macro",
+                    name="macro_f1",
+                )
+            ],
         )
         classWeights = self.computeClassWeights(trainSamples)
         if not classWeights:
             classWeights = None
-        callbacks = [EmaBalancedF1(validationDataset, len(TumorClass), alpha=cfg.emaAlpha),self.buildEarlyStopping(),self.buildCheckpoint(),self._timer]
 
+        callbacks = [
+            EmaBalancedF1(
+                validationDataset,
+                len(TumorClass),
+                alpha=cfg.emaAlpha,
+            ),
+            self.buildEarlyStopping(),
+            self.buildCheckpoint(),
+            self._timer,
+        ]
+        self._emit_phase(
+            "compile_end",
+            duration_s=time.perf_counter() - t_compile,
+        )
+
+        self._emit_phase("fit_start", epochs=cfg.epochs)
+        t_fit = time.perf_counter()
         history = model.fit(
             trainDataset,
             validation_data=validationDataset,
@@ -186,7 +217,12 @@ class Learner:
             callbacks=callbacks,
             class_weight=classWeights,
             shuffle=False,
-            verbose=1,
+            verbose=0,
+        )
+        self._emit_phase(
+            "fit_end",
+            duration_s=time.perf_counter() - t_fit,
+            epochs_completed=len(history.history["loss"]),
         )
         self._model = model
         self._modelConfig.epochsTrained = len(history.history["loss"])
@@ -198,16 +234,50 @@ class Learner:
 
     def buildTrainingDataset(self, samples):
         if self._config.useAugmentation:
-            self._generator.reset(samples)
-            dataset = self._generator.asDataset()
+            copies = self._config.augmentation.copiesPerImage
+            base_imgs = [self._preprocessor.preprocess(r.imagePath) for r in samples]
+            base_labels = [int(r.label) for r in samples]
+
+            workers = 1
+            if workers > 1 and len(base_imgs) >= 32:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    aug_groups = list(
+                        pool.map(
+                            lambda img: self._preprocessor.augment(img, copies),
+                            base_imgs,
+                        )
+                    )
+            else:
+                aug_groups = [
+                    self._preprocessor.augment(img, copies) for img in base_imgs
+                ]
+
+            all_imgs = list(base_imgs)
+            all_labels = list(base_labels)
+            for lbl, aug_list in zip(base_labels, aug_groups):
+                all_imgs.extend(aug_list)
+                all_labels.extend([lbl] * len(aug_list))
+
+            allImages = tf.stack(all_imgs, axis=0)
+            allLabels = tf.one_hot(all_labels, len(TumorClass))
+            dataset = tf.data.Dataset.from_tensor_slices(
+                (allImages, allLabels)
+            )
+            shuffleBuffer = int(allImages.shape[0])
         else:
-            dataset = self._preprocessor.buildDataset(samples)
+            dataset = self._preprocessor.buildDataset(samples).cache()
+            shuffleBuffer = max(len(samples), SHUFFLE_BUFFER)
 
         dataset = dataset.shuffle(
-            SHUFFLE_BUFFER,
+            shuffleBuffer,
             seed=self._config.seed,
+            reshuffle_each_iteration=True,
         )
         dataset = dataset.batch(self._config.batchSize)
+
+        options = tf.data.Options()
+        options.experimental_deterministic = False
+        dataset = dataset.with_options(options)
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         return dataset

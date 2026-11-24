@@ -36,9 +36,7 @@ class TrainingReport:
             else []
         )
         self.validationMinClassF1 = (
-            validationMinClassF1
-            if validationMinClassF1 is not None
-            else []
+            validationMinClassF1 if validationMinClassF1 is not None else []
         )
 
         self._epochsCompleted = self.epochsCompleted

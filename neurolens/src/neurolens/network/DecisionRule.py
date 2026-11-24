@@ -1,32 +1,34 @@
-import tensorflow as tf
+from __future__ import annotations
 
-from neurolens.data_management.TumorClass import TumorClass
+import numpy as np
 
 
 class DecisionRule:
-    def __init__(self, costMatrix=None):
-        n = len(TumorClass)
-        if costMatrix is None:
-            costMatrix = 1.0 - tf.eye(n, dtype=tf.float32)
+    """Converts model logits or calibrated probabilities into class predictions."""
 
-        matrix = tf.convert_to_tensor(costMatrix, dtype=tf.float32)
-        if tuple(matrix.shape) != (n, n):
-            raise ValueError(f"cost matrix must have shape ({n}, {n})")
-        if not bool(tf.reduce_all(tf.math.is_finite(matrix)).numpy()):
-            raise ValueError("cost matrix must contain only finite values")
+    @staticmethod
+    def to_probabilities(outputs: np.ndarray) -> np.ndarray:
+        arr = np.asarray(outputs, dtype=np.float32)
+        if arr.ndim == 1:
+            arr = arr[None, :]
+        row_sums = np.sum(arr, axis=-1, keepdims=True)
+        is_prob = (
+            np.all(arr >= -1e-5)
+            and np.all(arr <= 1.0 + 1e-5)
+            and np.allclose(row_sums, 1.0, atol=1e-3)
+        )
+        if is_prob:
+            return np.clip(arr, 0.0, 1.0)
+        shifted = arr - np.max(arr, axis=-1, keepdims=True)
+        exp_vals = np.exp(shifted)
+        return exp_vals / np.maximum(np.sum(exp_vals, axis=-1, keepdims=True), 1e-12)
 
-        self._costMatrix = matrix
-
-    def expectedCost(self, action: TumorClass, probabilities) -> float:
-        p = tf.convert_to_tensor(probabilities, dtype=tf.float32)
-        if p.shape.rank != 1 or p.shape[0] != len(TumorClass):
-            raise ValueError("probabilities must be a vector with one value per class")
-
-        return float(tf.reduce_sum(self._costMatrix[int(action)] * p).numpy())
-
-    def decide(self, probabilities) -> TumorClass:
-        costs = tf.stack([
-            self.expectedCost(action, probabilities)
-            for action in TumorClass
-        ])
-        return TumorClass(int(tf.argmin(costs, axis=0).numpy()))
+    @staticmethod
+    def predict(
+        outputs: np.ndarray, class_multipliers: np.ndarray | None = None
+    ) -> np.ndarray:
+        probs = DecisionRule.to_probabilities(outputs)
+        if class_multipliers is not None:
+            w = np.asarray(class_multipliers, dtype=np.float32)
+            probs = probs * w[None, :]
+        return np.argmax(probs, axis=-1).astype(np.int32)

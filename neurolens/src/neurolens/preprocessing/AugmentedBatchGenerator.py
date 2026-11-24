@@ -18,6 +18,13 @@ class AugmentedBatchGenerator:
         self._samples: List[ImageRecord] = []
         self._pendingByClass: Dict[TumorClass, List[ImageRecord]] = {c: [] for c in TumorClass}
         self._current: Optional[AugmentedBatch] = None
+        self._augmentFn = tf.function(self._augmentTensor, reduce_retracing=True)
+
+    def _augmentTensor(self, x: tf.Tensor) -> tf.Tensor:
+        p = self._preprocessor
+        x = p._rotation(x, training=True)
+        x = p._translation(x, training=True)
+        return p._zoom(x, training=True)
 
     def reset(self, samples: List[ImageRecord]):
         self._samples = list(samples)
@@ -40,6 +47,7 @@ class AugmentedBatchGenerator:
             self._current.release()
 
         n = self._config.imagesPerClass
+        copies = self._config.copiesPerImage
         batch = AugmentedBatch()
 
         for items in self._pendingByClass.values():

@@ -22,16 +22,20 @@ class OtsuSegmenter(ImageOperator):
             return tf.constant(-1.0, dtype=histogram.dtype)
         return tf.cond((w0 > 0) & (w1 > 0),validVariance,invalidVariance)
 
+    def betweenClassVariances(self, histogram: tf.Tensor) -> tf.Tensor:
+        levels = tf.cast(tf.range(tf.size(histogram)), histogram.dtype)
+        weighted = levels * histogram
+        w0 = tf.cumsum(histogram)[:-1]
+        w1 = tf.cumsum(histogram, reverse=True)[1:]
+        mean0 = tf.math.divide_no_nan(tf.cumsum(weighted)[:-1], w0)
+        mean1 = tf.math.divide_no_nan(tf.cumsum(weighted, reverse=True)[1:], w1)
+        variances = w0 * w1 * (mean0 - mean1) ** 2
+        valid = (w0 > 0) & (w1 > 0)
+        return tf.where(valid, variances, tf.constant(-1.0, dtype=histogram.dtype))
+
     def computeThreshold(self, histogram: tf.Tensor) -> tf.Tensor:
         numberOfLevels = tf.size(histogram)
-        candidates = tf.range(numberOfLevels - 1)
-        def evaluateThreshold(t):
-            return self.betweenClassVariance(histogram, t)
-        variances = tf.map_fn(
-            evaluateThreshold,
-            candidates,
-            fn_output_signature=tf.TensorSpec(shape=(),dtype=histogram.dtype)
-        )
+        variances = self.betweenClassVariances(histogram)
         bestVariance = tf.reduce_max(variances)
         def validThreshold():
             return tf.argmax(variances, output_type=tf.int32)
