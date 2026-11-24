@@ -2,7 +2,9 @@ import sys
 from pathlib import Path
 import tensorflow as tf
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
-                               QGroupBox, QSizePolicy, QPushButton, QFileDialog, QComboBox, QSpinBox, QMessageBox)
+                               QGroupBox, QSizePolicy, QPushButton, QFileDialog, QComboBox, QSpinBox,
+                               QMessageBox, QTabWidget, QDialog, QCheckBox, QFormLayout, QDoubleSpinBox,
+                               QLineEdit, QFrame, QListWidget, QPlainTextEdit, QToolButton)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from neurolens.controller.MainController import MainController
@@ -10,6 +12,7 @@ from neurolens.data_management.SplitType import SplitType
 from neurolens.view.ImageAdapter import ImageAdapter
 from neurolens.controller.AugmentationConfig import AugmentationConfig
 from neurolens.data_management.TumorClass import TumorClass
+from neurolens.controller.TrainingConfig import TrainingConfig
 
 
 class ImageLabel(QLabel):
@@ -41,36 +44,195 @@ class ImageLabel(QLabel):
 
 class MainWindow(QMainWindow):
 
+
     def __init__(self):
         super().__init__()
-
         self.image_adapter = ImageAdapter()
         self.controller = MainController()
-
         self._preview_samples = []
         self._preview_sample_index = 0
         self._current_preview_sample = None
         self._preview_image_index = 0
-
+        self._dataset_loaded = False
+        self._model_weights_path = None
+        self._model_json_path = None
+        self._training_running = False
+        self._training_settings = {
+            "batch": 32,
+            "all": False,
+            "augment": False,
+            "copies": 2,
+            "epochs": 40,
+            "learning_rate": 0.001,
+            "weight_decay": 0.0001,
+            "dropout": 0.0,
+            "decoupled": False,
+            "patience": 5,
+            "seed": 42,
+        }
+        self._preprocessing_mode = "none"
+        self._manual_preprocessing_steps = []
         self.setWindowTitle("NeuroLens")
         self.resize(900, 600)
-
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
-
+        main_layout = QVBoxLayout(central_widget)
+        model_layout = QHBoxLayout()
+        self.model_label = QLabel("Model: Not Selected")
+        self.choose_model_button = QPushButton("Choose Model")
+        model_layout.addWidget(self.model_label)
+        model_layout.addStretch()
+        model_layout.addWidget(self.choose_model_button)
+        main_layout.addLayout(model_layout)
+        self.choose_model_button.clicked.connect(self.openModelDialog)
+        tabs_panel = QTabWidget()
+        main_layout.addWidget(tabs_panel)
+        preview_tab = QWidget()
+        learn_tab = QWidget()
+        test_tab = QWidget()
+        run_tab = QWidget()
+        tabs_panel.addTab(preview_tab, "Dataset & Preview")
+        tabs_panel.addTab(learn_tab, "Learn")
+        tabs_panel.addTab(test_tab, "Test")
+        tabs_panel.addTab(run_tab, "Run")
+        self.setupLearnTab(learn_tab)
+        self.setupTestTab(test_tab)
+        self.setupRunTab(run_tab)
+        preview_layout = QHBoxLayout(preview_tab)
         left_panel = QGroupBox("Image Preview")
         right_panel = QGroupBox("Control Panel")
-
-        main_layout.addWidget(left_panel, 3)
-        main_layout.addWidget(right_panel, 2)
-
-        left_layout = QVBoxLayout(left_panel)
-        right_layout = QVBoxLayout(right_panel)
-
-        self.setupImagePreview(left_layout)
-        self.setupControlsPanel(right_layout)
+        preview_layout.addWidget(left_panel, 3)
+        preview_layout.addWidget(right_panel, 2)
+        self.setupImagePreview(QVBoxLayout(left_panel))
+        self.setupControlsPanel(QVBoxLayout(right_panel))
         self.updateNavigationControls(0, 0)
+        self.statusBar().showMessage("Ready")
+        self.refreshLearnAvailability()
+
+
+    def classifyRunImage(self):
+        if self._run_image_path is None:
+            return
+        self.run_status_label.setText("Classifying...")
+        self.statusBar().showMessage("Classifying image...")
+        QApplication.processEvents()
+
+        try:
+            result = self.controller.classify(self._run_image_path)
+            self.run_class_label.setText(result.getPredictedLabel())
+            self.run_confidence_label.setText(f"{result.getConfidence():.2%}")
+            self.run_time_label.setText(f"{result.inferenceTimeMs:.2f} ms")
+            self.run_status_label.setText("Classification completed")
+            self.statusBar().showMessage("Classification completed")
+
+        except Exception as error:
+            self.run_status_label.setText("Classification failed")
+            self.displayError(f"Classification failed:\n{error}")
+
+    def setupRunTab(self, run_tab):
+        layout = QVBoxLayout(run_tab)
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Classification"))
+        header.addStretch()
+        choose_button = QPushButton("Choose image...")
+        choose_button.clicked.connect(self.chooseRunImage)
+        header.addWidget(choose_button)
+        layout.addLayout(header)
+        self.run_path_label = QLabel("No image selected")
+        layout.addWidget(self.run_path_label)
+        content_layout = QHBoxLayout()
+        image_group = QGroupBox()
+        image_layout = QVBoxLayout(image_group)
+        self.run_image_label = ImageLabel()
+        self.run_image_label.setMinimumSize(180, 180)
+        self.run_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.run_image_label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
+        self.run_image_label.clearImage("Choose an image to classify")
+        image_layout.addWidget(self.run_image_label)
+        content_layout.addWidget(image_group, 3)
+        prediction_group = QGroupBox("Prediction")
+        prediction_layout = QVBoxLayout(prediction_group)
+        prediction_layout.addWidget(QLabel("Predicted class"))
+        self.run_class_label = QLabel("—")
+        prediction_layout.addWidget(self.run_class_label)
+        prediction_layout.addWidget(QLabel("Confidence"))
+        self.run_confidence_label = QLabel("—")
+        prediction_layout.addWidget(self.run_confidence_label)
+        prediction_layout.addWidget(QLabel("Inference time"))
+        self.run_time_label = QLabel("—")
+        prediction_layout.addWidget(self.run_time_label)
+        prediction_layout.addStretch()
+        content_layout.addWidget(prediction_group, 2)
+        layout.addLayout(content_layout, 1)
+        bottom_layout = QHBoxLayout()
+        self.run_status_label = QLabel("No inference has been run")
+        bottom_layout.addWidget(self.run_status_label)
+        bottom_layout.addStretch()
+        self.run_classify_button = QPushButton("Classify")
+        self.run_classify_button.setEnabled(False)
+        self.run_classify_button.clicked.connect(self.classifyRunImage)
+        bottom_layout.addWidget(self.run_classify_button)
+        layout.addLayout(bottom_layout)
+        self._run_image_path = None
+
+    def chooseRunImage(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose image",
+            "",
+            "Images (*.jpg *.jpeg *.png)"
+        )
+        if not path:
+            return
+        if not self.controller.validateInput(path):
+            self.displayError("Invalid image.")
+            return
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            self.displayError("Unable to display image.")
+            return
+        self._run_image_path = path
+        self.run_image_label.setImage(pixmap)
+        self.run_path_label.setText(Path(path).name)
+        self.run_class_label.setText("—")
+        self.run_confidence_label.setText("—")
+        self.run_time_label.setText("—")
+        self.run_status_label.setText("Ready to classify")
+        self.run_classify_button.setEnabled(True)
+
+
+    def evaluateModel(self):
+        self.statusBar().showMessage("Evaluating model...")
+        self.evaluation_report_text.setPlainText("Evaluating model...")
+        QApplication.processEvents()
+
+        try:
+            report = self.controller.evaluate()
+            self.evaluation_report_text.setPlainText(report.generateReport())
+            self.statusBar().showMessage("Evaluation completed")
+
+        except Exception as error:
+            self.evaluation_report_text.setPlainText("Evaluation failed.")
+            self.displayError(f"Evaluation failed:\n{error}")
+
+    def setupTestTab(self, test_tab):
+        layout = QVBoxLayout(test_tab)
+        layout.addWidget(QLabel("Evaluation"))
+        layout.addWidget(QLabel("Evaluate the selected model on the test set."))
+        action_layout = QHBoxLayout()
+        action_layout.addWidget(QLabel("Test dataset"))
+        action_layout.addStretch()
+        self.evaluate_button = QPushButton("Evaluate model")
+        self.evaluate_button.clicked.connect(self.evaluateModel)
+        action_layout.addWidget(self.evaluate_button)
+        layout.addLayout(action_layout)
+        report_group = QGroupBox("Evaluation report")
+        report_layout = QVBoxLayout(report_group)
+        self.evaluation_report_text = QPlainTextEdit()
+        self.evaluation_report_text.setReadOnly(True)
+        self.evaluation_report_text.setPlainText("No evaluation has been run.")
+        report_layout.addWidget(self.evaluation_report_text)
+        layout.addWidget(report_group, 1)
 
     def setupImagePreview(self, layout):
         self.image_label = ImageLabel()
@@ -217,6 +379,9 @@ class MainWindow(QMainWindow):
             self.choose_split.setEnabled(True)
             self.preview_button.setEnabled(True)
             self.onSplitChanged(self.choose_split.currentIndex())
+            self._dataset_loaded = True
+            self.refreshLearnAvailability()
+            self.statusBar().showMessage("Dataset loaded successfully")
         except Exception as error:
             self.displayError(f"Failed to load dataset:\n{error}")
 

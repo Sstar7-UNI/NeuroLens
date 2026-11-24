@@ -1,4 +1,5 @@
 from __future__ import annotations
+from neurolens.data_management.TumorClass import TumorClass
 
 import numpy as np
 
@@ -32,3 +33,7 @@ class DecisionRule:
             w = np.asarray(class_multipliers, dtype=np.float32)
             probs = probs * w[None, :]
         return np.argmax(probs, axis=-1).astype(np.int32)
+
+    def decide(self, probabilities) -> TumorClass:
+        prediction = self.predict(np.asarray(probabilities))
+        return TumorClass(int(prediction[0]))

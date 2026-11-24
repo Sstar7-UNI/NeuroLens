@@ -72,7 +72,7 @@ class EmaBalancedF1(keras.callbacks.Callback):
             return
 
         predictions = np.argmax(
-            self.model.predict(self._dataset, verbose=0),
+            self.model.predict(self._dataset, verbose=1),
             axis=1,
         )
 
@@ -172,6 +172,7 @@ class Learner:
         validationDataset = self._preprocessor.buildDataset(validationSamples)
         validationDataset = validationDataset.batch(cfg.batchSize)
         validationDataset = validationDataset.prefetch(tf.data.AUTOTUNE)
+        t_compile = time.perf_counter()
         l2 = 0.0 if cfg.decoupledDecay else cfg.weightDecay
         model = CNNClassifier(
             self._modelConfig,
@@ -217,7 +218,7 @@ class Learner:
             callbacks=callbacks,
             class_weight=classWeights,
             shuffle=False,
-            verbose=0,
+            verbose=1,
         )
         self._emit_phase(
             "fit_end",

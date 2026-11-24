@@ -90,10 +90,9 @@ class ImagePreprocessor:
     def fitNormalization(self, samples: List[ImageRecord]) -> None:
         if not samples:
             return
-
+        paths = [record.imagePath for record in samples]
         dataset = tf.data.Dataset.from_tensor_slices(paths)
         dataset = dataset.map(lambda path: self.preprocessBeforeNormalization(path)).batch(32)
-
         self._normalization.adapt(dataset)
 
     def augment(self, image: tf.Tensor, copies: int) -> List[tf.Tensor]:

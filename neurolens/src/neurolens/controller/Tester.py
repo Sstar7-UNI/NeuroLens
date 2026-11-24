@@ -38,7 +38,7 @@ class Tester:
         self._predicted = predicted
 
         matrix = ConfusionMatrix.fromPredictions(tf.constant(trueIds), tf.constant(predictedIds))
-        report = EvaluationReport(matrix, matrix.classMetrics(), self.collectMisclassifications())
+        report = EvaluationReport(matrix, self.collectMisclassifications())
         self._repository.saveEvaluation(report)
         return report
 
