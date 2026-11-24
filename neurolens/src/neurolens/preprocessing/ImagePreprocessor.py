@@ -82,48 +82,19 @@ class ImagePreprocessor:
             self._width,
         )
 
-    def _run_pipeline_tensor(self, path: str) -> tf.Tensor:
-        cache_id = (self._pipeline_key, path)
-        if cache_id in self._cache:
-            return self._cache[cache_id]
-
-        image = self.decode(path)
-        for op in self._pipeline:
-            image = op.apply(image)
-
-        self._cache[cache_id] = image
-        return image
-
     def preprocess(self, path: str) -> tf.Tensor:
-        image = self._run_pipeline_tensor(path)
-
-        return tf.squeeze(
-            self._normalization(tf.expand_dims(image, 0)),
-            0,
-        )
+        image = self.preprocessBeforeNormalization(path)
+        image = self.normalize(image)
+        return image
 
     def fitNormalization(self, samples: List[ImageRecord]) -> None:
         if not samples:
             return
 
-        has_fittable = any(
-            hasattr(op, "fit") and callable(op.fit) for op in self._pipeline
-        )
-        if has_fittable:
-            current_tensors = [self.decode(r.imagePath) for r in samples]
-            for op in self._pipeline:
-                if hasattr(op, "fit") and callable(op.fit):
-                    imgs_2d = [t.numpy()[:, :, 0] for t in current_tensors]
-                    op.fit(imgs_2d)
-                current_tensors = [op.apply(t) for t in current_tensors]
-            for r, tensor in zip(samples, current_tensors):
-                self._cache[(self._pipeline_key, r.imagePath)] = tensor
-            stacked = tf.stack(current_tensors, axis=0)
-        else:
-            tensors = [self._run_pipeline_tensor(r.imagePath) for r in samples]
-            stacked = tf.stack(tensors, axis=0)
+        dataset = tf.data.Dataset.from_tensor_slices(paths)
+        dataset = dataset.map(lambda path: self.preprocessBeforeNormalization(path)).batch(32)
 
-        self._normalization.adapt(stacked)
+        self._normalization.adapt(dataset)
 
     def augment(self, image: tf.Tensor, copies: int) -> List[tf.Tensor]:
         output = []
@@ -139,11 +110,41 @@ class ImagePreprocessor:
         return output
 
     def buildDataset(self, samples: List[ImageRecord]) -> tf.data.Dataset:
-        if not samples:
-            empty_x = tf.zeros((0, self._height, self._width, 1), dtype=tf.float32)
-            empty_y = tf.zeros((0, 4), dtype=tf.float32)
-            return tf.data.Dataset.from_tensor_slices((empty_x, empty_y))
+        paths = [record.imagePath for record in samples]
+        labels = [int(record.label) for record in samples]
 
-        xs = tf.stack([self.preprocess(r.imagePath) for r in samples], axis=0)
-        ys = tf.one_hot([int(r.label) for r in samples], depth=4)
-        return tf.data.Dataset.from_tensor_slices((xs, ys))
+        dataset = tf.data.Dataset.from_tensor_slices(
+            (paths, labels)
+        )
+
+        return dataset.map(
+            lambda path, label: (
+                self.preprocess(path),
+                tf.one_hot(label, 4),
+            )
+        )
+
+    def _applyOperators(self, image: tf.Tensor) -> tf.Tensor:
+        for operator in self._pipeline:
+            image = operator.apply(image)
+        return image
+
+    def preprocessBeforeNormalization(self, path: str) -> tf.Tensor:
+        image = self.decode(path)
+        image = self._applyOperators(image)
+        return image
+
+    def normalize(self, image: tf.Tensor) -> tf.Tensor:
+        expended_image = tf.expand_dims(image, 0)
+        normalized_image = self._normalization(expended_image)
+        rezult_image = tf.squeeze(normalized_image, axis=0)
+        return rezult_image
+
+    def applyOperators(self, image: tf.Tensor) -> tf.Tensor:
+        return self._applyOperators(image)
+
+    def augmentBatch(self, images: tf.Tensor) -> tf.Tensor:
+        images = self._rotation(images, training=True)
+        images = self._translation(images, training=True)
+        images = self._zoom(images, training=True)
+        return images

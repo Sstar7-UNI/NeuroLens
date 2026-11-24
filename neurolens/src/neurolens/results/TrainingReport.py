@@ -18,12 +18,8 @@ class TrainingReport:
         self.bestEpoch = bestEpoch
         self.bestValidationMacroF1 = bestValidationMacroF1
         self.trainLoss = trainLoss
-        self.validationLoss = (
-            validationLoss if validationLoss is not None else []
-        )
-        self.validationMacroF1 = (
-            validationMacroF1 if validationMacroF1 is not None else []
-        )
+        self.validationLoss = (validationLoss if validationLoss is not None else [])
+        self.validationMacroF1 = (validationMacroF1 if validationMacroF1 is not None else [])
         self.epochDurationsMs = (
             epochDurationsMs
             if epochDurationsMs is not None

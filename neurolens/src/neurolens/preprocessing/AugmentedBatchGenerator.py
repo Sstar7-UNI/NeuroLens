@@ -1,3 +1,4 @@
+
 import random
 from typing import Dict, List, Optional
 
@@ -41,33 +42,42 @@ class AugmentedBatchGenerator:
     def nextBatch(self) -> AugmentedBatch:
         if not self.hasNext():
             raise StopIteration("no more batches")
+
         if self._current is not None:
             self._current.release()
+
         n = self._config.imagesPerClass
         copies = self._config.copiesPerImage
         batch = AugmentedBatch()
-        indices: List[int] = []
-        images: List[tf.Tensor] = []
+
         for items in self._pendingByClass.values():
             take = items[:n]
             del items[:n]
+
             for r in take:
                 img = self._preprocessor.preprocess(r.imagePath)
-                indices.append(batch.add(r, img))
-                images.append(img)
-        if copies > 0 and images:
-            stacked = tf.repeat(tf.stack(images, axis=0), copies, axis=0)
-            augmented = tf.unstack(self._augmentFn(stacked), axis=0)
-            for k, a in enumerate(augmented):
-                batch.addAugmented(a, indices[k // copies])
+
+                idx = batch.add(r, img)
+
+                augmentedImages = self._preprocessor.augment(
+                    img, self._config.copiesPerImage
+                )
+
+                for a in augmentedImages:
+                    batch.addAugmented(a, idx)
+
         self._current = batch
+
         return batch
 
     def _gen(self):
         self.reset(self._samples)
+
         while self.hasNext():
             batch = self.nextBatch()
-            for img, lab in batch.toDataset():
+            dataset = batch.toDataset()
+
+            for img, lab in dataset:
                 yield img, lab
 
     def asDataset(self) -> tf.data.Dataset:

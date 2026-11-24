@@ -1,6 +1,5 @@
 from neurolens.controller import AugmentationConfig
 
-
 class TrainingConfig:
    def __init__(self, epochs:int,batchSize:int, learningRate:float,
                 weightDecay:float, dropoutRate:float,decoupledDecay:bool,

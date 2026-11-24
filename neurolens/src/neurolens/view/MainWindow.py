@@ -329,6 +329,785 @@ class MainWindow(QMainWindow):
             self._clearPreprocessingPreview()
             self.displayError(f"Failed to load next preview batch:\n{error}")
 
+    def setupLearnTab(self, learn_tab):
+        layout = QVBoxLayout(learn_tab)
+
+        layout.addWidget(QLabel("Training"))
+        layout.addWidget(QLabel(
+            "Configure a run, review its settings, then start training."
+        ))
+
+        settings_group = QGroupBox()
+        settings_layout = QVBoxLayout(settings_group)
+
+        # Training settings
+        training_row = QHBoxLayout()
+        training_info = QVBoxLayout()
+
+        training_info.addWidget(QLabel("Training settings"))
+
+        self.training_summary = QLabel()
+        training_info.addWidget(self.training_summary)
+
+        training_row.addLayout(training_info, 1)
+
+        self.training_configure_button = QPushButton("Configure...")
+        self.training_configure_button.clicked.connect(
+            self.openTrainingSettings
+        )
+
+        training_row.addWidget(self.training_configure_button)
+        settings_layout.addLayout(training_row)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        settings_layout.addWidget(separator)
+
+        # Preprocessing
+        preprocessing_row = QHBoxLayout()
+        preprocessing_info = QVBoxLayout()
+
+        preprocessing_info.addWidget(QLabel("Preprocessing"))
+
+        self.preprocessing_summary = QLabel("No additional operators")
+        preprocessing_info.addWidget(self.preprocessing_summary)
+
+        preprocessing_row.addLayout(preprocessing_info, 1)
+
+        self.preprocessing_configure_button = QPushButton("Configure...")
+        self.preprocessing_configure_button.clicked.connect(
+            self.openLearnPreprocessing
+        )
+
+        preprocessing_row.addWidget(self.preprocessing_configure_button)
+        settings_layout.addLayout(preprocessing_row)
+
+        layout.addWidget(settings_group)
+
+        # Start training
+        start_row = QHBoxLayout()
+
+        self.training_requirement_label = QLabel(
+            "Dataset and model required"
+        )
+        start_row.addWidget(self.training_requirement_label)
+        start_row.addStretch()
+
+        self.start_training_button = QPushButton("Start training")
+        self.start_training_button.setEnabled(False)
+        self.start_training_button.clicked.connect(self.startTraining)
+
+        start_row.addWidget(self.start_training_button)
+        layout.addLayout(start_row)
+
+
+        # Training results
+        results_group = QGroupBox("Training results")
+        results_layout = QHBoxLayout(results_group)
+
+        epochs_layout = QVBoxLayout()
+        epochs_layout.addWidget(QLabel("Epochs completed"))
+        self.training_epochs_label = QLabel("—")
+        epochs_layout.addWidget(self.training_epochs_label)
+
+        best_epoch_layout = QVBoxLayout()
+        best_epoch_layout.addWidget(QLabel("Best epoch (EMA)"))
+        self.training_best_epoch_label = QLabel("—")
+        best_epoch_layout.addWidget(self.training_best_epoch_label)
+
+        f1_layout = QVBoxLayout()
+        f1_layout.addWidget(QLabel("Validation macro F1"))
+        self.training_f1_label = QLabel("—")
+        f1_layout.addWidget(self.training_f1_label)
+
+        f1_layout.addWidget(QLabel("EMA balanced F1"))
+        self.training_ema_f1_label = QLabel("—")
+        f1_layout.addWidget(self.training_ema_f1_label)
+
+        results_layout.addLayout(epochs_layout, 1)
+        results_layout.addLayout(best_epoch_layout, 1)
+        results_layout.addLayout(f1_layout, 1)
+
+        layout.addWidget(results_group)
+        layout.addStretch()
+
+        self.updateTrainingSummary()
+
+    def updateTrainingSummary(self):
+        settings = self._training_settings
+
+        batch = "all" if settings["all"] else str(settings["batch"])
+
+        if settings["augment"]:
+            augmentation = f'{settings["copies"]} copies'
+        else:
+            augmentation = "off"
+
+        self.training_summary.setText(
+            f'Batch size {batch} · '
+            f'augmentation {augmentation} · '
+            f'{settings["epochs"]} epochs'
+        )
+
+    def openTrainingSettings(self):
+        settings = self._training_settings
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Training settings")
+        layout = QVBoxLayout(dialog)
+
+        # Batch size
+        layout.addWidget(QLabel("Batch size"))
+
+        batch_input = QSpinBox()
+        batch_input.setRange(1, 1000000)
+        batch_input.setValue(settings["batch"])
+        layout.addWidget(batch_input)
+
+        all_check = QCheckBox("Use all training images in one batch")
+        all_check.setChecked(settings["all"])
+
+        all_check.toggled.connect(
+            lambda checked: batch_input.setEnabled(not checked)
+        )
+        batch_input.setEnabled(not settings["all"])
+        layout.addWidget(all_check)
+
+        # Augmentation
+        augment_check = QCheckBox("Enable augmentation")
+        augment_check.setChecked(settings["augment"])
+        layout.addWidget(augment_check)
+
+        copies_widget = QWidget()
+        copies_layout = QFormLayout(copies_widget)
+
+        copies_input = QSpinBox()
+        copies_input.setRange(1, 100)
+        copies_input.setValue(settings["copies"])
+
+        copies_layout.addRow("Copies per image", copies_input)
+
+        copies_widget.setVisible(settings["augment"])
+        augment_check.toggled.connect(copies_widget.setVisible)
+
+        layout.addWidget(copies_widget)
+
+        # Additional settings
+        additional_toggle = QToolButton()
+        additional_toggle.setText("Additional settings")
+        additional_toggle.setCheckable(True)
+        additional_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        additional_toggle.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+
+        layout.addWidget(additional_toggle)
+
+        additional_widget = QWidget()
+        additional_layout = QFormLayout(additional_widget)
+        additional_widget.setVisible(False)
+
+        additional_toggle.toggled.connect(additional_widget.setVisible)
+
+        additional_toggle.toggled.connect(
+            lambda checked: additional_toggle.setArrowType(
+                Qt.ArrowType.DownArrow
+                if checked else Qt.ArrowType.RightArrow
+            )
+        )
+
+        epochs_input = QSpinBox()
+        epochs_input.setRange(1, 1000)
+        epochs_input.setValue(settings["epochs"])
+        additional_layout.addRow("Epochs", epochs_input)
+
+        learning_rate_input = QDoubleSpinBox()
+        learning_rate_input.setDecimals(6)
+        learning_rate_input.setRange(0.000001, 1.0)
+        learning_rate_input.setSingleStep(0.0001)
+        learning_rate_input.setValue(settings["learning_rate"])
+        additional_layout.addRow("Learning rate", learning_rate_input)
+
+        weight_decay_input = QDoubleSpinBox()
+        weight_decay_input.setDecimals(6)
+        weight_decay_input.setRange(0.0, 1.0)
+        weight_decay_input.setSingleStep(0.0001)
+        weight_decay_input.setValue(settings["weight_decay"])
+        additional_layout.addRow("Weight decay", weight_decay_input)
+
+        dropout_input = QDoubleSpinBox()
+        dropout_input.setDecimals(2)
+        dropout_input.setRange(0.0, 0.99)
+        dropout_input.setSingleStep(0.05)
+        dropout_input.setValue(settings["dropout"])
+        additional_layout.addRow("Dropout rate", dropout_input)
+
+        decoupled_check = QCheckBox("Decoupled weight decay")
+        decoupled_check.setChecked(settings["decoupled"])
+        additional_layout.addRow(decoupled_check)
+
+        patience_input = QSpinBox()
+        patience_input.setRange(1, 1000)
+        patience_input.setValue(settings["patience"])
+        additional_layout.addRow("Patience", patience_input)
+
+        seed_input = QSpinBox()
+        seed_input.setRange(0, 99999)
+        seed_input.setValue(settings["seed"])
+        additional_layout.addRow("Seed", seed_input)
+
+        layout.addWidget(additional_widget)
+
+        # Cancel / Apply
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch()
+
+        cancel_button = QPushButton("Cancel")
+        apply_button = QPushButton("Apply")
+
+        cancel_button.clicked.connect(dialog.reject)
+        apply_button.clicked.connect(dialog.accept)
+
+        buttons_layout.addWidget(cancel_button)
+        buttons_layout.addWidget(apply_button)
+        layout.addLayout(buttons_layout)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._training_settings = {
+                "batch": batch_input.value(),
+                "all": all_check.isChecked(),
+                "augment": augment_check.isChecked(),
+                "copies": copies_input.value(),
+                "epochs": epochs_input.value(),
+                "learning_rate": learning_rate_input.value(),
+                "weight_decay": weight_decay_input.value(),
+                "dropout": dropout_input.value(),
+                "decoupled": decoupled_check.isChecked(),
+                "patience": patience_input.value(),
+                "seed": seed_input.value(),
+            }
+
+            self.updateTrainingSummary()
+
+    def configurePreprocessingOperator(self, operator_type: str):
+        if operator_type == "OtsuSegmenter":
+            return {"type": "OtsuSegmenter"}
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Configure {operator_type}")
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+        layout.addLayout(form)
+
+        fields = {}
+
+        def doubleInput(minimum, maximum, value):
+            widget = QDoubleSpinBox()
+            widget.setDecimals(3)
+            widget.setRange(minimum, maximum)
+            widget.setSingleStep(0.05)
+            widget.setValue(value)
+            return widget
+
+        def kernelInput():
+            widget = QComboBox()
+            widget.addItems(["1", "3", "5", "7", "9"])
+            widget.setCurrentText("3")
+            return widget
+
+        def paddingInput():
+            widget = QComboBox()
+            widget.addItems(["ZERO", "REPLICATE", "REFLECT"])
+            widget.setCurrentText("REFLECT")
+            return widget
+
+        if operator_type == "ContrastStretcher":
+            fields["lower"] = doubleInput(0.0, 1.0, 0.05)
+            fields["upper"] = doubleInput(0.0, 1.0, 0.95)
+
+            form.addRow("Lower", fields["lower"])
+            form.addRow("Upper", fields["upper"])
+
+        elif operator_type == "GaussianFilter":
+            fields["sigma"] = doubleInput(0.01, 20.0, 1.0)
+            fields["kernelSize"] = kernelInput()
+            fields["padding"] = paddingInput()
+
+            form.addRow("Sigma", fields["sigma"])
+            form.addRow("Kernel size", fields["kernelSize"])
+            form.addRow("Padding", fields["padding"])
+
+        elif operator_type == "MedianFilter":
+            fields["kernelSize"] = kernelInput()
+            fields["padding"] = paddingInput()
+
+            form.addRow("Kernel size", fields["kernelSize"])
+            form.addRow("Padding", fields["padding"])
+
+        elif operator_type == "HistogramEqualizer":
+            fields["levels"] = QSpinBox()
+            fields["levels"].setRange(2, 256)
+            fields["levels"].setValue(256)
+
+            form.addRow("Levels", fields["levels"])
+
+        elif operator_type == "MorphologyOperator":
+            fields["connectivity"] = QComboBox()
+            fields["connectivity"].addItems(["FOUR", "EIGHT"])
+            fields["connectivity"].setCurrentText("EIGHT")
+
+            form.addRow("Connectivity", fields["connectivity"])
+
+        else:
+            raise ValueError(f"Unknown operator: {operator_type}")
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+
+        cancel = QPushButton("Cancel")
+        apply = QPushButton("Add operator")
+
+        cancel.clicked.connect(dialog.reject)
+        apply.clicked.connect(dialog.accept)
+
+        buttons.addWidget(cancel)
+        buttons.addWidget(apply)
+        layout.addLayout(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+
+        step = {"type": operator_type}
+
+        for name, widget in fields.items():
+            if isinstance(widget, QComboBox):
+                if name == "kernelSize":
+                    step[name] = int(widget.currentText())
+                else:
+                    step[name] = widget.currentText()
+            else:
+                step[name] = widget.value()
+
+        return step
+
+    def openLearnPreprocessing(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Preprocessing")
+        dialog.resize(500, 400)
+
+        layout = QVBoxLayout(dialog)
+
+        # Mode
+        layout.addWidget(QLabel("Mode"))
+
+        mode = QComboBox()
+        mode.addItems([
+            "None — no additional operators",
+            "Manual — choose operators"
+        ])
+
+        if self._preprocessing_mode == "manual":
+            mode.setCurrentIndex(1)
+
+        layout.addWidget(mode)
+
+        # Local copy of the selected pipeline
+        steps = [
+            step.copy()
+            for step in self._manual_preprocessing_steps
+        ]
+
+        manual_group = QGroupBox("Manual preprocessing")
+        manual_layout = QVBoxLayout(manual_group)
+
+        manual_layout.addWidget(QLabel("Selected operators (in order)"))
+
+        operators_list = QListWidget()
+        manual_layout.addWidget(operators_list)
+
+        # Operator selector
+        selector_row = QHBoxLayout()
+
+        operator_selector = QComboBox()
+        operator_selector.addItems([
+            "ContrastStretcher",
+            "GaussianFilter",
+            "MedianFilter",
+            "HistogramEqualizer",
+            "OtsuSegmenter",
+            "MorphologyOperator"
+        ])
+
+        add_button = QPushButton("Add")
+
+        selector_row.addWidget(operator_selector, 1)
+        selector_row.addWidget(add_button)
+
+        manual_layout.addLayout(selector_row)
+
+        # Pipeline controls
+        controls = QHBoxLayout()
+
+        remove_button = QPushButton("Remove")
+        up_button = QPushButton("Move up")
+        down_button = QPushButton("Move down")
+
+        controls.addWidget(remove_button)
+        controls.addWidget(up_button)
+        controls.addWidget(down_button)
+
+        manual_layout.addLayout(controls)
+
+        layout.addWidget(manual_group)
+
+        manual_group.setVisible(mode.currentIndex() == 1)
+
+        mode.currentIndexChanged.connect(
+            lambda index: manual_group.setVisible(index == 1)
+        )
+
+        def refreshList():
+            current = operators_list.currentRow()
+            operators_list.clear()
+
+            for index, step in enumerate(steps):
+                parameters = ", ".join(
+                    f"{key}={value}"
+                    for key, value in step.items()
+                    if key != "type"
+                )
+
+                description = f"{index + 1}. {step['type']}"
+
+                if parameters:
+                    description += f" ({parameters})"
+
+                operators_list.addItem(description)
+
+            if steps:
+                operators_list.setCurrentRow(
+                    max(0, min(current, len(steps) - 1))
+                )
+
+        def addOperator():
+            operator_type = operator_selector.currentText()
+
+            step = self.configurePreprocessingOperator(
+                operator_type
+            )
+
+            if step is not None:
+                steps.append(step)
+                refreshList()
+                operators_list.setCurrentRow(len(steps) - 1)
+
+        def removeOperator():
+            index = operators_list.currentRow()
+
+            if index < 0:
+                return
+
+            steps.pop(index)
+            refreshList()
+
+        def moveUp():
+            index = operators_list.currentRow()
+
+            if index <= 0:
+                return
+
+            steps[index - 1], steps[index] = (
+                steps[index],
+                steps[index - 1]
+            )
+
+            refreshList()
+            operators_list.setCurrentRow(index - 1)
+
+        def moveDown():
+            index = operators_list.currentRow()
+
+            if index < 0 or index >= len(steps) - 1:
+                return
+
+            steps[index], steps[index + 1] = (
+                steps[index + 1],
+                steps[index]
+            )
+
+            refreshList()
+            operators_list.setCurrentRow(index + 1)
+
+        add_button.clicked.connect(addOperator)
+        remove_button.clicked.connect(removeOperator)
+        up_button.clicked.connect(moveUp)
+        down_button.clicked.connect(moveDown)
+
+        refreshList()
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+
+        cancel = QPushButton("Cancel")
+        apply = QPushButton("Apply")
+
+        buttons.addWidget(cancel)
+        buttons.addWidget(apply)
+
+        layout.addLayout(buttons)
+
+        cancel.clicked.connect(dialog.reject)
+
+        def applySettings():
+            manual = mode.currentIndex() == 1
+
+            if manual and not steps:
+                QMessageBox.warning(
+                    dialog,
+                    "Preprocessing",
+                    "Add at least one operator for Manual mode."
+                )
+                return
+
+            selected_steps = steps if manual else []
+
+            try:
+                self.controller.selectPreprocessing(
+                    selected_steps
+                )
+            except Exception as error:
+                QMessageBox.warning(
+                    dialog,
+                    "Invalid preprocessing",
+                    str(error)
+                )
+                return
+
+            dialog.accept()
+
+        apply.clicked.connect(applySettings)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        self._manual_preprocessing_steps = steps
+
+        if mode.currentIndex() == 0:
+            self._preprocessing_mode = "none"
+            self.preprocessing_summary.setText(
+                "No additional operators"
+            )
+        else:
+            self._preprocessing_mode = "manual"
+            self.preprocessing_summary.setText(
+                f"Manual: {len(steps)} operators"
+            )
+
+        self._clearPreprocessingPreview()
+        self.statusBar().showMessage(
+            "Preprocessing configuration updated"
+        )
+
+    def openModelDialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Choose model")
+
+        layout = QVBoxLayout(dialog)
+
+        # Model weights
+        layout.addWidget(QLabel("Model weights (.weights.h5)"))
+
+        weights_row = QHBoxLayout()
+
+        weights_path = QLineEdit(self._model_weights_path or "")
+        weights_button = QPushButton("Choose file...")
+
+        weights_row.addWidget(weights_path)
+        weights_row.addWidget(weights_button)
+        layout.addLayout(weights_row)
+
+        def chooseWeights():
+            path, _ = QFileDialog.getSaveFileName(
+                dialog,
+                "Choose model weights destination",
+                weights_path.text(),
+                "Keras weights (*.weights.h5)"
+            )
+
+            if path:
+                weights_path.setText(path)
+
+        weights_button.clicked.connect(chooseWeights)
+
+        # Model configuration
+        layout.addWidget(QLabel("Model configuration (.json)"))
+
+        config_row = QHBoxLayout()
+
+        config_path = QLineEdit(self._model_json_path or "")
+        config_button = QPushButton("Choose file...")
+
+        config_row.addWidget(config_path)
+        config_row.addWidget(config_button)
+        layout.addLayout(config_row)
+
+        def chooseConfig():
+            path, _ = QFileDialog.getOpenFileName(
+                dialog,
+                "Choose model configuration",
+                config_path.text(),
+                "JSON files (*.json)"
+            )
+
+            if path:
+                config_path.setText(path)
+
+        config_button.clicked.connect(chooseConfig)
+
+        # Cancel / Select
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+
+        cancel = QPushButton("Cancel")
+        select = QPushButton("Select")
+
+        cancel.clicked.connect(dialog.reject)
+        select.clicked.connect(dialog.accept)
+
+        buttons.addWidget(cancel)
+        buttons.addWidget(select)
+        layout.addLayout(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        weights = weights_path.text().strip()
+        config = config_path.text().strip()
+
+        if not weights.endswith(".weights.h5"):
+            self.displayError("Weights path must end with .weights.h5")
+            return
+
+        if not config.endswith(".json"):
+            self.displayError("Model configuration must be a JSON file.")
+            return
+
+        try:
+            self.controller.selectModel(weights, config)
+        except Exception as error:
+            self.displayError(f"Unable to select model:\n{error}")
+            return
+
+        self._model_weights_path = weights
+        self._model_json_path = config
+
+        self.model_label.setText(f"Model: {Path(config).stem}")
+        self.statusBar().showMessage("Model selected")
+
+        self.refreshLearnAvailability()
+
+    def refreshLearnAvailability(self):
+        ready = self._dataset_loaded and self._model_json_path is not None
+
+        self.start_training_button.setEnabled(
+            ready and not self._training_running
+        )
+
+        if self._training_running:
+            message = "Training in progress..."
+        elif not self._dataset_loaded and self._model_json_path is None:
+            message = "Dataset and model required"
+        elif not self._dataset_loaded:
+            message = "Dataset required"
+        elif self._model_json_path is None:
+            message = "Model required"
+        else:
+            message = "Ready to train"
+
+        self.training_requirement_label.setText(message)
+
+    def startTraining(self):
+        if self._training_running:
+            return
+
+        if not self._dataset_loaded or self._model_json_path is None:
+            self.refreshLearnAvailability()
+            return
+
+        # Prevent accidental overwriting of existing weights
+        if Path(self._model_weights_path).exists():
+            answer = QMessageBox.question(
+                self,
+                "Overwrite model weights?",
+                "The selected weights file may be overwritten. Continue?",
+                QMessageBox.StandardButton.Yes |
+                QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        settings = self._training_settings
+
+        config = TrainingConfig(
+            epochs=settings["epochs"],
+            batchSize=0 if settings["all"] else settings["batch"],
+            learningRate=settings["learning_rate"],
+            weightDecay=settings["weight_decay"],
+            dropoutRate=settings["dropout"],
+            decoupledDecay=settings["decoupled"],
+            patience=settings["patience"],
+            useAugmentation=settings["augment"],
+            augmentation=AugmentationConfig(
+                imagesPerClass=100,
+                copiesPerImage=settings["copies"] if settings["augment"] else 1,
+                seed=settings["seed"]
+            ),
+            seed=settings["seed"]
+        )
+
+        self._training_running = True
+        self.refreshLearnAvailability()
+
+        self.training_epochs_label.setText("—")
+        self.training_best_epoch_label.setText("—")
+        self.training_f1_label.setText("—")
+        self.training_ema_f1_label.setText("—")
+
+        self.statusBar().showMessage("Training in progress...")
+
+        QApplication.processEvents()
+
+        try:
+            report = self.controller.train(config)
+
+            self.training_epochs_label.setText(
+                str(report.epochsCompleted)
+            )
+
+            self.training_best_epoch_label.setText(
+                str(report.bestEpoch + 1)
+            )
+
+            self.training_f1_label.setText(
+                f"{report.bestValidationMacroF1:.4f}"
+            )
+
+            self.training_ema_f1_label.setText(
+                f"{report.bestValidationEmaBalancedF1:.4f}"
+            )
+
+            self.statusBar().showMessage("Training completed")
+
+        except Exception as error:
+            self.displayError(f"Training failed:\n{error}")
+
+        finally:
+            self._training_running = False
+            self.refreshLearnAvailability()
+
     def displayPreview(self, preview):
         if preview is None:
             self._clearPreprocessingPreview()
